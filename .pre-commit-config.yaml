@@ -1,0 +1,31 @@
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v2.2.3
+    hooks:
+    -   id: check-docstring-first
+        stages:
+        - commit
+        - push
+    -   id: check-merge-conflict
+        stages:
+        - push
+    -   id: double-quote-string-fixer
+        stages:
+        - commit
+        - push
+    -   id: fix-encoding-pragma
+        stages:
+        - commit
+        - push
+    -   id: flake8
+        args: ['--config=setup.cfg']
+        stages:
+        - commit
+        - push
+-   repo: https://github.com/pre-commit/mirrors-autopep8
+    rev: v1.4.4
+    hooks:
+    -   id: autopep8
+        stages:
+        - commit
+        - push

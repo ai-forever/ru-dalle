@@ -1,0 +1,8 @@
+taming-transformers==0.0.1
+more_itertools==8.10.0
+transformers==4.10.2
+youtokentome==1.0.6
+einops==0.3.2
+torch
+torchvision
+matplotlib
