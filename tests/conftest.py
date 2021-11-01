@@ -6,10 +6,16 @@ import PIL
 import pytest
 import requests
 
-from rudalle import get_tokenizer, get_rudalle_model, get_vae
+from rudalle import get_tokenizer, get_rudalle_model, get_vae, get_realesrgan
 
 
 TEST_ROOT = dirname(abspath(__file__))
+
+
+@pytest.fixture(scope='module')
+def realesrgan():
+    realesrgan = get_realesrgan('x2', device='cpu')
+    yield realesrgan
 
 
 @pytest.fixture(scope='module')
