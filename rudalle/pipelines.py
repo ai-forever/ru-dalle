@@ -49,6 +49,15 @@ def generate_images(text, tokenizer, dalle, vae, top_k, top_p, images_num, tempe
     return pil_images, scores
 
 
+def super_resolution(pil_images, realesrgan):
+    result = []
+    for pil_image in pil_images:
+        with torch.no_grad():
+            sr_image = realesrgan.predict(np.array(pil_image))
+        result.append(sr_image)
+    return result
+
+
 def show(pil_images, nrow=4):
     imgs = torchvision.utils.make_grid(utils.pil_list_to_torch_tensors(pil_images), nrow=nrow)
     if not isinstance(imgs, list):
