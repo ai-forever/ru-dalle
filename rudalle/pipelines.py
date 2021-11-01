@@ -70,7 +70,7 @@ def cherry_pick_by_clip(pil_images, text, ruclip, ruclip_processor, device='cpu'
             items.append({'img_index': index, 'cosine': sim})
     items = sorted(items, key=lambda x: x['cosine'], reverse=True)[:count]
     top_pil_images = [pil_images[x['img_index']] for x in items]
-    top_scores = [pil_images[x['cosine']] for x in items]
+    top_scores = [x['cosine'] for x in items]
     return top_pil_images, top_scores
 
 
