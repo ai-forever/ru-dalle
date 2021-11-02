@@ -14,6 +14,7 @@ from rudalle.pipelines import generate_images, show, super_resolution, cherry_pi
 from rudalle import get_rudalle_model, get_tokenizer, get_vae, get_realesrgan, get_ruclip
 from rudalle.utils import seed_everything
 
+# prepare models
 device = 'cuda'
 dalle = get_rudalle_model('Malevich', pretrained=True, fp16=True, device=device)
 realesrgan = get_realesrgan('x4', device=device)
@@ -23,11 +24,10 @@ ruclip, ruclip_processor = get_ruclip('ruclip-vit-base-patch32-v5')
 ruclip = ruclip.to(device)
 
 text = 'изображение радуги на фоне ночного города'
-pil_images = []
-scores = []
 
 seed_everything(42)
-
+pil_images = []
+scores = []
 for top_k, top_p, images_num in [
     (2048, 0.995, 3),
     (1536, 0.99, 3),
