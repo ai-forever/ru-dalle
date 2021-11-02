@@ -4,7 +4,8 @@ from .dalle import get_rudalle_model
 from .tokenizer import get_tokenizer
 from .realesrgan import get_realesrgan
 from .ruclip import get_ruclip
-from . import vae, dalle, tokenizer, realesrgan, pipelines, ruclip
+from .image_prompts import ImagePrompts
+from . import vae, dalle, tokenizer, realesrgan, pipelines, ruclip, image_prompts
 
 
 __all__ = [
@@ -19,6 +20,7 @@ __all__ = [
     'tokenizer',
     'realesrgan',
     'pipelines',
+    'ImagePrompts',
 ]
 
 __version__ = '0.0.1-rc1'
