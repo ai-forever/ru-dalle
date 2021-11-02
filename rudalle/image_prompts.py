@@ -24,10 +24,10 @@ class ImagePrompts:
         return img
 
     @staticmethod
-    def _get_image_prompts(img, borders, vae, crop_first=False):
+    def _get_image_prompts(img, borders, vae, crop_first):
         if crop_first:
             assert borders['right'] + borders['left'] + borders['down'] == 0
-            up_border = borders['up'] * 7
+            up_border = borders['up'] * 8
             _, _, [_, _, vqg_img] = vae.model.encode(img[:, :, :up_border, :])
         else:
             _, _, [_, _, vqg_img] = vae.model.encode(img)
