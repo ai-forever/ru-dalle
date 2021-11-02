@@ -1,6 +1,8 @@
+# -*- coding: utf-8 -*-
 import pytest
 
 from rudalle.image_prompts import ImagePrompts
+
 
 @pytest.mark.parametrize('borders, crop_first', [
     ({'up': 4, 'right': 0, 'left': 0, 'down': 0}, False),
@@ -17,4 +19,4 @@ def test_image_prompts(sample_image, vae, borders, crop_first):
     else:
         assert image_prompt.image_prompts.shape[1] == 32 * 32
         assert len(image_prompt.image_prompts_idx) == (borders['up'] + borders['down']) * 32 \
-               + (borders['left'] + borders['right']) * (32 - borders['up'] - borders['down'])
+            + (borders['left'] + borders['right']) * (32 - borders['up'] - borders['down'])

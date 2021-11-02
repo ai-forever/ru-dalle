@@ -37,7 +37,7 @@ def generate_images(text, tokenizer, dalle, vae, top_k, top_p, images_num, image
                 prompts = prompts.repeat(images_num, 1)
                 if use_cache:
                     use_cache = False
-                    print("Warning: use_cache changed to False")
+                    print('Warning: use_cache changed to False')
             for idx in tqdm(range(out.shape[1], total_seq_length)):
                 idx -= text_seq_length
                 if image_prompts is not None and idx in prompts_idx:
