@@ -11,6 +11,8 @@ pip install rudalle==0.0.1rc2
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1wGE-046et27oHvNlBNPH07qrEQNE04PQ?usp=sharing)
 
+[![Kaggle](https://kaggle.com/static/images/open-in-kaggle.svg)](https://www.kaggle.com/shonenkov/rudalle-example-generation)
+
 ### generation by ruDALLE:
 ```python
 from rudalle.pipelines import generate_images, show, super_resolution, cherry_pick_by_clip
