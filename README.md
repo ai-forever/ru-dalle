@@ -60,3 +60,8 @@ sr_images = super_resolution(top_images, realesrgan)
 show(sr_images, 3)
 ```
 ![](./pics/rainbow-super-resolution.png)
+
+```python
+text, seed = 'красивая тян из аниме', 6955
+```
+![](./pics/anime-girl-super-resolution.png)
