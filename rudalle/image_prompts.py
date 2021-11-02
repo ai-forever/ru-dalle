@@ -9,6 +9,7 @@ class ImagePrompts:
         Args:
             pil_image (PIL.Image): image in PIL format
             borders (dict[str] | int): borders that we croped from pil_image
+                example: {'up': 4, 'right': 0, 'left': 0, 'down': 0} (1 int eq 8 pixels)
             vae (VQGanGumbelVAE): VQGAN model for image encoding
             device (str): cpu or cuda
             crop_first (bool): if True, croped image before VQGAN encoding
