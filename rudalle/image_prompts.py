@@ -19,7 +19,7 @@ class ImagePrompts:
         self.image_prompts_idx, self.image_prompts = self._get_image_prompts(img, borders, vae, crop_first)
 
     def _preprocess_img(self, pil_img):
-        img = torch.tensor(np.array(pil_img).transpose(2, 0, 1)) / 255.
+        img = torch.tensor(np.array(pil_img.convert('RGB')).transpose(2, 0, 1)) / 255.
         img = img.unsqueeze(0).to(self.device, dtype=torch.float32)
         img = (2 * img) - 1
         return img
