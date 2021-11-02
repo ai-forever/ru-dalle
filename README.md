@@ -2,7 +2,7 @@
 ### Generate images from texts
 
 ```
-pip install rudalle==0.0.1rc1
+pip install rudalle==0.0.1rc2
 ```
 ### 🤗 HF Models:
 [ruDALL-E Malevich (XL)](https://huggingface.co/sberbank-ai/rudalle-Malevich)
@@ -65,3 +65,12 @@ show(sr_images, 3)
 text, seed = 'красивая тян из аниме', 6955
 ```
 ![](./pics/anime-girl-super-resolution.png)
+
+
+### Image Prompt
+see `jupyters/ruDALLE-image-prompts-A100.ipynb`
+```python
+text, seed = 'Храм Василия Блаженного', 42
+skyes = [red_sky, sunny_sky, cloudy_sky, night_sky]
+```
+![](./pics/russian-temple-image-prompt.png)
