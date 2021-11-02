@@ -4,6 +4,9 @@
 ```
 pip install rudalle==0.0.1rc1
 ```
+### 🤗 HF Models:
+[ruDALL-E Malevich (XL)](https://huggingface.co/sberbank-ai/rudalle-Malevich)
+
 ### Minimal Example:
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1wGE-046et27oHvNlBNPH07qrEQNE04PQ?usp=sharing)
