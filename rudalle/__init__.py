@@ -20,3 +20,5 @@ __all__ = [
     'realesrgan',
     'pipelines',
 ]
+
+__version__ = '0.0.1-rc1'
