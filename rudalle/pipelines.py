@@ -94,3 +94,5 @@ def show(pil_images, nrow=4):
         img = torchvision.transforms.functional.to_pil_image(img)
         axs[0, i].imshow(np.asarray(img))
         axs[0, i].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
+    fix.show()
+    plt.show()
