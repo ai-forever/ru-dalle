@@ -13,6 +13,6 @@ all_branch_test:
   - pip install -r requirements-test.txt --no-cache-dir
   - pip install codecov
   - pytest --cov=rudalle tests/
-  - bash <(curl -s https://codecov.io/bash)
+  - bash <(curl -s https://codecov.io/bash) -t $CODECOV_TOKEN
   except:
   - tags
