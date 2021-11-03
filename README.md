@@ -81,3 +81,4 @@ skyes = [red_sky, sunny_sky, cloudy_sky, night_sky]
 ### 🚀 Contributors 🚀
 
 - [@neverix](https://www.kaggle.com/neverix) thanks a lot for contributing for speed up of inference
+- [@oriBetelgeuse](https://github.com/oriBetelgeuse) thanks a lot for easy API of generation using image prompt 
