@@ -5,7 +5,7 @@ import transformers
 import more_itertools
 import numpy as np
 import matplotlib.pyplot as plt
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 from . import utils
 
