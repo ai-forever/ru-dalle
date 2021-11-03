@@ -2,7 +2,7 @@
 ### Generate images from texts
 
 ```
-pip install rudalle==0.0.1rc3
+pip install rudalle==0.0.1rc4
 ```
 ### 🤗 HF Models:
 [ruDALL-E Malevich (XL)](https://huggingface.co/sberbank-ai/rudalle-Malevich)
@@ -76,3 +76,8 @@ text, seed = 'Храм Василия Блаженного', 42
 skyes = [red_sky, sunny_sky, cloudy_sky, night_sky]
 ```
 ![](./pics/russian-temple-image-prompt.png)
+
+
+### 🚀 Contributors 🚀
+
+- [@neverix](https://www.kaggle.com/neverix) thanks a lot for contributing for speed up of inference
