@@ -2,7 +2,7 @@
 ### Generate images from texts
 
 ```
-pip install rudalle==0.0.1rc2
+pip install rudalle==0.0.1rc3
 ```
 ### 🤗 HF Models:
 [ruDALL-E Malevich (XL)](https://huggingface.co/sberbank-ai/rudalle-Malevich)
