@@ -5,7 +5,6 @@
 [![pipeline](https://gitlab.com/shonenkov/ru-dalle/badges/develop/pipeline.svg)](https://codecov.io/gh/sberbank-ai/ru-dalle)
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/sberbank-ai/ru-dalle/master.svg)](https://results.pre-commit.ci/latest/github/sberbank-ai/ru-dalle/master)
 
-https://gitlab.com/%{project_path}/badges/%{default_branch}/pipeline.svg
 ```
 pip install rudalle==0.0.1rc4
 ```
