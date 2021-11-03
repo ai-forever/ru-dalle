@@ -174,4 +174,4 @@ class DalleModel(torch.nn.Module):
         self.device = device
         self._mask_map = [mask.to(device) for mask in self._mask_map]
         self.transformer._mask_map = [mask.to(device) for mask in self.transformer._mask_map]
-        return super(DalleModel, self).to(device, *args, **kwargs)
+        return super().to(device, *args, **kwargs)
