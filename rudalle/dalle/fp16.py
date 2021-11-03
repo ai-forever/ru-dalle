@@ -58,3 +58,7 @@ class FP16Module(nn.Module):
 
     def get_param(self, item):
         return self.module.get_param(item)
+
+    def to(self, device, *args, **kwargs):
+        self.module.to(device)
+        return super().to(device, *args, **kwargs)
