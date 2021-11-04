@@ -166,3 +166,4 @@ runs/
 jupyters/custom_*
 
 *logs/
+.DS_store

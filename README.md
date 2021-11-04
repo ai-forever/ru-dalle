@@ -1,8 +1,12 @@
 # ruDALL-E
 ### Generate images from texts
+[![Apache license](https://img.shields.io/badge/License-Apache-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
+[![Coverage Status](https://codecov.io/gh/sberbank-ai/ru-dalle/branch/master/graphs/badge.svg)](https://codecov.io/gh/sberbank-ai/ru-dalle)
+[![pipeline](https://gitlab.com/shonenkov/ru-dalle/badges/master/pipeline.svg)](https://gitlab.com/shonenkov/ru-dalle/-/pipelines)
+[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/sberbank-ai/ru-dalle/master.svg)](https://results.pre-commit.ci/latest/github/sberbank-ai/ru-dalle/master)
 
 ```
-pip install rudalle==0.0.1rc2
+pip install rudalle==0.0.1rc4
 ```
 ### 🤗 HF Models:
 [ruDALL-E Malevich (XL)](https://huggingface.co/sberbank-ai/rudalle-Malevich)
@@ -10,7 +14,6 @@ pip install rudalle==0.0.1rc2
 ### Minimal Example:
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1wGE-046et27oHvNlBNPH07qrEQNE04PQ?usp=sharing)
-
 [![Kaggle](https://kaggle.com/static/images/open-in-kaggle.svg)](https://www.kaggle.com/shonenkov/rudalle-example-generation)
 
 ### generation by ruDALLE:
@@ -76,3 +79,9 @@ text, seed = 'Храм Василия Блаженного', 42
 skyes = [red_sky, sunny_sky, cloudy_sky, night_sky]
 ```
 ![](./pics/russian-temple-image-prompt.png)
+
+
+### 🚀 Contributors 🚀
+
+- [@neverix](https://www.kaggle.com/neverix) thanks a lot for contributing for speed up of inference
+- [@oriBetelgeuse](https://github.com/oriBetelgeuse) thanks a lot for easy API of generation using image prompt 
