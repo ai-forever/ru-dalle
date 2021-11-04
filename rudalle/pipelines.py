@@ -35,12 +35,11 @@ def generate_images(text, tokenizer, dalle, vae, top_k, top_p, images_num, image
             if image_prompts is not None:
                 prompts_idx, prompts = image_prompts.image_prompts_idx, image_prompts.image_prompts
                 prompts = prompts.repeat(images_num, 1)
-                if use_cache:
-                    use_cache = False
-                    print('Warning: use_cache changed to False')
             for idx in tqdm(range(out.shape[1], total_seq_length)):
                 idx -= text_seq_length
                 if image_prompts is not None and idx in prompts_idx:
+                    logits, has_cache = dalle(out, attention_mask,
+                                              has_cache=has_cache, use_cache=use_cache, return_loss=False)
                     out = torch.cat((out, prompts[:, idx].unsqueeze(1)), dim=-1)
                 else:
                     logits, has_cache = dalle(out, attention_mask,
