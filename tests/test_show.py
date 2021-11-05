@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from rudalle.pipelines import show
 
 
