@@ -21,6 +21,10 @@ pip install rudalle==0.0.1rc4
 **English translation example**
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/12fbO6YqtzHAHemY2roWQnXvKkdidNQKO?usp=sharing)
 
+
+**Finetuning example**
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1Tb7J4PvvegWOybPfUubl5O7m5I24CBg5?usp=sharing)
+
 ### generation by ruDALLE:
 ```python
 from rudalle.pipelines import generate_images, show, super_resolution, cherry_pick_by_clip
