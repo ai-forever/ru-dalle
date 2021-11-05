@@ -23,7 +23,7 @@ pip install rudalle==0.0.1rc4
 
 
 **Finetuning example**
-[![Open In Colab](https://colab.research.google.com/drive/1Tb7J4PvvegWOybPfUubl5O7m5I24CBg5?usp=sharing)
+[![Open In Colab](https://colab.research.google.com/drive/1Tb7J4PvvegWOybPfUubl5O7m5I24CBg5?usp=sharing)]
 
 ### generation by ruDALLE:
 ```python
