@@ -1,4 +1,4 @@
-# ruDALL-E 
+# ruDALL-E
 ### Generate images from texts
 
 [![](./pics/habr.svg)](https://habr.com/ru/company/sberdevices/blog/586926/)
