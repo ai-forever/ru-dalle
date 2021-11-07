@@ -206,7 +206,7 @@ class DalleSelfAttention(torch.nn.Module):
         self.num_attention_heads = num_attention_heads
         self.hidden_size_per_attention_head = divide(hidden_size, num_attention_heads)
 
-        self.query_key_value = torch.nn.Linear(hidden_size, 3*hidden_size)
+        self.query_key_value = torch.nn.Linear(hidden_size, 3 * hidden_size)
         self.attention_dropout = torch.nn.Dropout(attention_dropout_prob)
 
         # Output.
@@ -214,6 +214,7 @@ class DalleSelfAttention(torch.nn.Module):
         self.output_dropout = torch.nn.Dropout(output_dropout_prob)
 
         # Cache
+        self.cache_size = 0
         self.past_key = None
         self.past_value = None
         self.past_output = None
@@ -248,12 +249,12 @@ class DalleSelfAttention(torch.nn.Module):
             attention_scores = (attention_scores_scaled - attention_scores_scaled_maxes) * alpha
         return attention_scores
 
-    def forward(self, hidden_states, ltor_mask, has_cache=False, use_cache=False,):
+    def forward(self, hidden_states, ltor_mask, has_cache=False, use_cache=False, ):
         # hidden_states: [b, s, h]
         # ltor_mask: [1, 1, s, s]
         # Attention heads. [b, s, hp]
         if has_cache and use_cache:
-            mixed_x_layer = self.query_key_value(hidden_states[:, -1:, :])
+            mixed_x_layer = self.query_key_value(hidden_states[:, self.cache_size:, :])
         else:
             mixed_x_layer = self.query_key_value(hidden_states)
 
@@ -277,7 +278,12 @@ class DalleSelfAttention(torch.nn.Module):
                 query_layer=query_layer, key_layer=key_layer, ltor_mask=ltor_mask
             )
 
+        if use_cache and has_cache:
+            extra_cache_size = hidden_states.shape[-2] - self.cache_size
+            attention_scores = attention_scores[..., -extra_cache_size:, :]
+
         if use_cache:
+            self.cache_size = hidden_states.shape[-2]
             self.past_key = key_layer
             self.past_value = value_layer
         else:
@@ -285,9 +291,6 @@ class DalleSelfAttention(torch.nn.Module):
             self.past_value = None
             self.past_output = None
             has_cache = False
-
-        if use_cache and has_cache:
-            attention_scores = attention_scores[..., -1:, :]
 
         # Attention probabilities. [b, np, s, s]
         attention_probs = torch.nn.Softmax(dim=-1)(attention_scores)
@@ -338,16 +341,19 @@ class DalleMLP(torch.nn.Module):
     def __init__(self, hidden_size, output_dropout_prob):
         super(DalleMLP, self).__init__()
         # Project to 4h.
-        self.dense_h_to_4h = torch.nn.Linear(hidden_size, 4*hidden_size)
+        self.dense_h_to_4h = torch.nn.Linear(hidden_size, 4 * hidden_size)
         # Project back to h.
-        self.dense_4h_to_h = torch.nn.Linear(4*hidden_size, hidden_size)
+        self.dense_4h_to_h = torch.nn.Linear(4 * hidden_size, hidden_size)
         self.dropout = torch.nn.Dropout(output_dropout_prob)
         # MLP cache
+        self.cache_size = 0
         self.past_x = None
 
     def forward(self, hidden_states, has_cache=False, use_cache=False):
         if has_cache and use_cache:
-            hidden_states = hidden_states[:, -1:]
+            extra_cache_size = hidden_states.shape[-2] - self.cache_size
+            self.cache_size += extra_cache_size
+            hidden_states = hidden_states[:, -extra_cache_size:]
 
         # [b, s, 4hp]
         x = self.dense_h_to_4h(hidden_states)
@@ -360,6 +366,7 @@ class DalleMLP(torch.nn.Module):
                 x = torch.cat((self.past_x, x), dim=-2)
                 self.past_x = x
             else:
+                self.cache_size = hidden_states.shape[-2]
                 self.past_x = x
 
             has_cache = True
