@@ -36,12 +36,12 @@ class ImagePrompts:
                 vqg_img[:, -borders['down']:, :] = down_vqg_img
             if borders['right'] != 0:
                 right_border = borders['right'] * 8
-                _, _, [_, _, right_vqg_img] = vae.model.encode(img[:, :, :, :right_border])
-                vqg_img[:, :, :borders['right']] = right_vqg_img
+                _, _, [_, _, right_vqg_img] = vae.model.encode(img[:, :, :, -right_border:])
+                vqg_img[:, :, -borders['right']:] = right_vqg_img
             if borders['left'] != 0:
                 left_border = borders['left'] * 8
-                _, _, [_, _, left_vqg_img] = vae.model.encode(img[:, :, :, -left_border:])
-                vqg_img[:, :, -borders['left']:] = left_vqg_img
+                _, _, [_, _, left_vqg_img] = vae.model.encode(img[:, :, :, :left_border])
+                vqg_img[:, :, :borders['left']] = left_vqg_img
             if borders['up'] != 0:
                 up_border = borders['up'] * 8
                 _, _, [_, _, up_vqg_img] = vae.model.encode(img[:, :, :up_border, :])
@@ -56,9 +56,9 @@ class ImagePrompts:
         if borders['down'] != 0:
             mask[-borders['down']:, :] = 1.
         if borders['right'] != 0:
-            mask[:, :borders['right']] = 1.
+            mask[:, -borders['right']:] = 1.
         if borders['left'] != 0:
-            mask[:, -borders['left']:] = 1.
+            mask[:, :borders['left']] = 1.
         mask = mask.reshape(-1).bool()
 
         image_prompts = vqg_img.reshape((bs, -1))
