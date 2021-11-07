@@ -18,7 +18,6 @@ class ImagePrompts:
         self.device = device
         img = self._preprocess_img(pil_image)
         self.image_prompts_idx, self.image_prompts = self._get_image_prompts(img, borders, vae, crop_first)
-        self.allow_cache = True
 
     def _preprocess_img(self, pil_img):
         img = torch.tensor(np.array(pil_img.convert('RGB')).transpose(2, 0, 1)) / 255.
@@ -33,9 +32,6 @@ class ImagePrompts:
             _, _, [_, _, vqg_img] = vae.model.encode(img[:, :, :up_border, :])
         else:
             _, _, [_, _, vqg_img] = vae.model.encode(img)
-
-        if borders['right'] + borders['left'] + borders['down'] != 0:
-            self.allow_cache = False  # TODO fix cache in attention
 
         bs, vqg_img_w, vqg_img_h = vqg_img.shape
         mask = torch.zeros(vqg_img_w, vqg_img_h)
