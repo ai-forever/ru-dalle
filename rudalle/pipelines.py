@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+import os
+from glob import glob
+from os.path import join
+
 import torch
 import torchvision
 import transformers
@@ -34,10 +38,7 @@ def generate_images(text, tokenizer, dalle, vae, top_k, top_p, images_num, image
             sample_scores = []
             if image_prompts is not None:
                 prompts_idx, prompts = image_prompts.image_prompts_idx, image_prompts.image_prompts
-                prompts = prompts.repeat(images_num, 1)
-                if use_cache:
-                    use_cache = False
-                    print('Warning: use_cache changed to False')
+                prompts = prompts.repeat(chunk_bs, 1)
             for idx in tqdm(range(out.shape[1], total_seq_length)):
                 idx -= text_seq_length
                 if image_prompts is not None and idx in prompts_idx:
@@ -84,15 +85,32 @@ def cherry_pick_by_clip(pil_images, text, ruclip, ruclip_processor, device='cpu'
     return top_pil_images, top_scores
 
 
-def show(pil_images, nrow=4):
+def show(pil_images, nrow=4, size=14, save_dir=None, show=True):
+    """
+    :param pil_images: list of images in PIL
+    :param nrow: number of rows
+    :param size: size of the images
+    :param save_dir: dir for separately saving of images, example: save_dir='./pics'
+    """
+    if save_dir is not None:
+        os.makedirs(save_dir, exist_ok=True)
+        count = len(glob(join(save_dir, 'img_*.png')))
+        for i, pil_image in enumerate(pil_images):
+            pil_image.save(join(save_dir, f'img_{count+i}.png'))
+
     imgs = torchvision.utils.make_grid(utils.pil_list_to_torch_tensors(pil_images), nrow=nrow)
     if not isinstance(imgs, list):
         imgs = [imgs.cpu()]
-    fix, axs = plt.subplots(ncols=len(imgs), squeeze=False, figsize=(14, 14))
+    fix, axs = plt.subplots(ncols=len(imgs), squeeze=False, figsize=(size, size))
     for i, img in enumerate(imgs):
         img = img.detach()
         img = torchvision.transforms.functional.to_pil_image(img)
-        axs[0, i].imshow(np.asarray(img))
-        axs[0, i].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
-    fix.show()
-    plt.show()
+        if save_dir is not None:
+            count = len(glob(join(save_dir, 'group_*.png')))
+            img.save(join(save_dir, f'group_{count+i}.png'))
+        if show:
+            axs[0, i].imshow(np.asarray(img))
+            axs[0, i].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
+    if show:
+        fix.show()
+        plt.show()
