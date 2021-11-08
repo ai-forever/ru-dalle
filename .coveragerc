@@ -1,0 +1,4 @@
+[run]
+omit =
+    # omit this single file
+    rudalle/vae/pytorch_wavelets_utils.py
