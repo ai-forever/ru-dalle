@@ -8,16 +8,19 @@ from torch import einsum
 from einops import rearrange
 from taming.modules.diffusionmodules.model import Encoder, Decoder
 
+from .decoder_dwt import DecoderDWT
+
 
 class VQGanGumbelVAE(torch.nn.Module):
 
-    def __init__(self, config):
+    def __init__(self, config, dwt=False):
         super().__init__()
         model = GumbelVQ(
             ddconfig=config.model.params.ddconfig,
             n_embed=config.model.params.n_embed,
             embed_dim=config.model.params.embed_dim,
             kl_weight=config.model.params.kl_weight,
+            dwt=dwt,
         )
         self.model = model
         self.num_layers = int(log(config.model.params.ddconfig.attn_resolutions[0]) / log(2))
@@ -79,11 +82,12 @@ class GumbelQuantize(nn.Module):
 
 class GumbelVQ(nn.Module):
 
-    def __init__(self, ddconfig, n_embed, embed_dim, kl_weight=1e-8):
+    def __init__(self, ddconfig, n_embed, embed_dim, dwt=False, kl_weight=1e-8):
         super().__init__()
         z_channels = ddconfig['z_channels']
+        self.dwt = dwt
         self.encoder = Encoder(**ddconfig)
-        self.decoder = Decoder(**ddconfig)
+        self.decoder = DecoderDWT(ddconfig, embed_dim) if dwt else Decoder(**ddconfig)
         self.quantize = GumbelQuantize(z_channels, embed_dim, n_embed=n_embed, kl_weight=kl_weight, temp_init=1.0)
         self.quant_conv = torch.nn.Conv2d(ddconfig['z_channels'], embed_dim, 1)
         self.post_quant_conv = torch.nn.Conv2d(embed_dim, ddconfig['z_channels'], 1)
@@ -95,6 +99,9 @@ class GumbelVQ(nn.Module):
         return quant, emb_loss, info
 
     def decode(self, quant):
-        quant = self.post_quant_conv(quant)
+        if self.dwt:
+            quant = self.decoder.post_quant_conv(quant)
+        else:
+            quant = self.post_quant_conv(quant)
         dec = self.decoder(quant)
         return dec

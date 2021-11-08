@@ -25,6 +25,15 @@ def test_reconstruct_vae(vae, sample_image, target_image_size):
     assert output.shape == (1, 3, target_image_size, target_image_size)
 
 
+@pytest.mark.parametrize('target_image_size', [256])
+def test_reconstruct_dwt_vae(dwt_vae, sample_image, target_image_size):
+    img = sample_image.copy()
+    with torch.no_grad():
+        x_vqgan = preprocess(img, target_image_size=target_image_size)
+        output = reconstruct_with_vqgan(preprocess_vqgan(x_vqgan), dwt_vae.model)
+    assert output.shape == (1, 3, target_image_size*2, target_image_size*2)
+
+
 def preprocess(img, target_image_size=256):
     s = min(img.size)
     if s < target_image_size:
