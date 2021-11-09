@@ -31,12 +31,14 @@ from rudalle.pipelines import generate_images, show, super_resolution, cherry_pi
 from rudalle import get_rudalle_model, get_tokenizer, get_vae, get_realesrgan, get_ruclip
 from rudalle.utils import seed_everything
 
-# prepare models
+# prepare models:
 device = 'cuda'
 dalle = get_rudalle_model('Malevich', pretrained=True, fp16=True, device=device)
-realesrgan = get_realesrgan('x4', device=device)
 tokenizer = get_tokenizer()
-vae = get_vae().to(device)
+vae = get_vae(dwt=True).to(device)
+
+# pipeline utils:
+realesrgan = get_realesrgan('x2', device=device)
 ruclip, ruclip_processor = get_ruclip('ruclip-vit-base-patch32-v5')
 ruclip = ruclip.to(device)
 
@@ -92,7 +94,7 @@ skyes = [red_sky, sunny_sky, cloudy_sky, night_sky]
 
 ### 🚀 Contributors 🚀
 
-- [@bes](https://github.com/bes-dev) shared [great idea and realization with IDWT](https://github.com/bes-dev/vqvae_dwt_distiller.pytorch) for decoding images with higher quality 512x512! 😈💪
+- [@bes](https://github.com/bes-dev) shared [great idea and realization with IDWT](https://github.com/bes-dev/vqvae_dwt_distiller.pytorch) for decoding images with higher quality 512x512! 😈💪 thanks a lot for your constructive advices, appreciate it
 - [@neverix](https://www.kaggle.com/neverix) thanks a lot for contributing for speed up of inference
 - [@Igor Pavlov](https://github.com/boomb0om) trained model and prepared code with [super-resolution](https://github.com/boomb0om/Real-ESRGAN-colab)
 - [@oriBetelgeuse](https://github.com/oriBetelgeuse) thanks a lot for easy API of generation using image prompt
