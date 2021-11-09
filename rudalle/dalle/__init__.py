@@ -60,7 +60,7 @@ def get_rudalle_model(name, pretrained=True, fp16=False, device='cpu', cache_dir
     assert name in MODELS
 
     if fp16 and device == 'cpu':
-        print('Warning! Using both fp16 and cpu doesnt support. You can use cuda device or turn off fp16.')
+        print('Warning! Using both fp16 and cpu is currently not supported. You can use cuda device or turn off fp16.')
 
     config = MODELS[name]
     model = DalleModel(device=device, fp16=fp16, **config['model_params'])
