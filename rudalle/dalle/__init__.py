@@ -21,14 +21,13 @@ MODELS = {
             attention_dropout_prob=0.1,
             image_tokens_per_dim=32,
             text_seq_length=128,
-            use_masks=True,
             cogview_sandwich_layernorm=True,
             cogview_pb_relax=True,
             vocab_size=16384+128,
             image_vocab_size=8192,
         ),
         repo_id='sberbank-ai/rudalle-Malevich',
-        filename='pytorch_model.bin',
+        filename='pytorch_model_v2.bin',
         full_description='',  # TODO
     ),
     'small': dict(
@@ -42,7 +41,6 @@ MODELS = {
             attention_dropout_prob=0.1,
             image_tokens_per_dim=32,
             text_seq_length=128,
-            use_masks=True,
             cogview_sandwich_layernorm=True,
             cogview_pb_relax=True,
             vocab_size=16384+128,
@@ -63,7 +61,7 @@ def get_rudalle_model(name, pretrained=True, fp16=False, device='cpu', cache_dir
         print('Warning! Using both fp16 and cpu doesnt support. You can use cuda device or turn off fp16.')
 
     config = MODELS[name]
-    model = DalleModel(device=device, fp16=fp16, **config['model_params'])
+    model = DalleModel(device=device, **config['model_params'])
     if pretrained:
         cache_dir = os.path.join(cache_dir, name)
         config_file_url = hf_hub_url(repo_id=config['repo_id'], filename=config['filename'])

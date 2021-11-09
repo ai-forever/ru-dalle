@@ -5,6 +5,7 @@ import torch
 from torch.nn import LayerNorm
 
 from .utils import divide, split_tensor_along_last_dim
+from .image_attention import get_conv_mask, get_row_mask, get_col_mask
 
 
 @torch.jit.script
@@ -45,9 +46,11 @@ class DalleTransformer(torch.nn.Module):
     _mask_map = []
 
     def __init__(self, num_layers, hidden_size, num_attention_heads, attention_dropout_prob, output_dropout_prob,
-                 layernorm_epsilon=1.0e-5, cogview_sandwich_layernorm=False, cogview_pb_relax=False):
+                 text_seq_length, image_tokens_per_dim, layernorm_epsilon=1.0e-5,
+                 cogview_sandwich_layernorm=False, cogview_pb_relax=False):
         super(DalleTransformer, self).__init__()
 
+        self.num_layers = num_layers
         # CogView stabilization of training features, see chapter 2.4 https://arxiv.org/pdf/2105.13290.pdf
         self.cogview_pb_relax = cogview_pb_relax
 
@@ -64,15 +67,30 @@ class DalleTransformer(torch.nn.Module):
             ) for _ in range(num_layers)
         ])
 
+        row_mask = get_row_mask(text_seq_length, image_tokens_per_dim)
+        col_mask = get_col_mask(text_seq_length, image_tokens_per_dim)
+        conv_mask = get_conv_mask(text_seq_length, image_tokens_per_dim)
+        self.register_buffer('row_mask', row_mask)
+        self.register_buffer('col_mask', col_mask)
+        self.register_buffer('conv_mask', conv_mask)
+
         # Final layer norm before output.
         self.final_layernorm = LayerNorm(hidden_size, eps=layernorm_epsilon)
+
+    def _get_layer_mask(self, layer_id):
+        if ((layer_id - 1) % 4 == 0):
+            layer_mask = self.col_mask
+        elif layer_id != self.num_layers - 1:
+            layer_mask = self.row_mask
+        else:
+            layer_mask = self.conv_mask
+        return layer_mask
 
     def forward(self, hidden_states, attention_mask, has_cache, use_cache):
         for i, layer in enumerate(self.layers):
             mask = attention_mask
-            if len(self._mask_map):
-                layer_mask = self._mask_map[i][:mask.size(2), :mask.size(3)]
-                mask = torch.mul(attention_mask, layer_mask)
+            layer_mask = self._get_layer_mask(i)[:mask.size(2), :mask.size(3)]
+            mask = torch.mul(attention_mask, layer_mask)
             hidden_states, present_has_cache = layer(hidden_states, mask, has_cache=has_cache, use_cache=use_cache)
         output = self.final_layernorm(hidden_states)
         return output, present_has_cache
