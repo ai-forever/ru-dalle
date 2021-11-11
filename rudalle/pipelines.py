@@ -60,11 +60,11 @@ def generate_images(text, tokenizer, dalle, vae, top_k, top_p, images_num, image
     return pil_images, scores
 
 
-def super_resolution(pil_images, realesrgan):
+def super_resolution(pil_images, realesrgan, batch_size=4):
     result = []
     for pil_image in pil_images:
         with torch.no_grad():
-            sr_image = realesrgan.predict(np.array(pil_image))
+            sr_image = realesrgan.predict(np.array(pil_image), batch_size=batch_size)
         result.append(sr_image)
     return result
 
