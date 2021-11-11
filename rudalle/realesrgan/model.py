@@ -16,8 +16,6 @@ class RealESRGAN:
         self.scale = scale
         self.model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=scale)
         self.fp16 = fp16
-        if self.fp16:
-            self.model = FP16Module(self.model)
 
     def load_weights(self, model_path):
         loadnet = torch.load(model_path)
@@ -28,6 +26,8 @@ class RealESRGAN:
         else:
             self.model.load_state_dict(loadnet, strict=True)
         self.model.eval()
+        if self.fp16:
+            self.model = FP16Module(self.model)
         self.model.to(self.device)
 
     def predict(self, lr_image, batch_size=4, patches_size=192,
