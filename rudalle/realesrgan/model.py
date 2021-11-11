@@ -15,7 +15,8 @@ class RealESRGAN:
         self.device = device
         self.scale = scale
         self.model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=scale)
-        if fp16:
+        self.fp16 = fp16
+        if self.fp16:
             self.model = FP16Module(self.model)
 
     def load_weights(self, model_path):
@@ -38,7 +39,10 @@ class RealESRGAN:
 
         patches, p_shape = split_image_into_overlapping_patches(lr_image, patch_size=patches_size,
                                                                 padding_size=padding)
-        img = torch.FloatTensor(patches / 255).permute((0, 3, 1, 2)).to(device).detach()
+        if self.fp16:
+            img = torch.HalfTensor(patches / 255).permute((0, 3, 1, 2)).to(device).detach()
+        else:
+            img = torch.FloatTensor(patches / 255).permute((0, 3, 1, 2)).to(device).detach()
 
         with torch.no_grad():
             res = self.model(img[0:batch_size])
