@@ -7,13 +7,16 @@ from PIL import Image
 
 from .rrdbnet_arch import RRDBNet
 from .utils import pad_reflect, split_image_into_overlapping_patches, stich_together, unpad_image
+from rudalle.dalle.fp16 import FP16Module
 
 
 class RealESRGAN:
-    def __init__(self, device, scale=4):
+    def __init__(self, device, scale=4, fp16=False):
         self.device = device
         self.scale = scale
         self.model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=scale)
+        if fp16:
+            self.model = FP16Module(self.model)
 
     def load_weights(self, model_path):
         loadnet = torch.load(model_path)
