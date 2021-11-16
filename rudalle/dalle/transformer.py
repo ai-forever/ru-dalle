@@ -47,7 +47,8 @@ class DalleTransformer(torch.nn.Module):
 
     def __init__(self, num_layers, hidden_size, num_attention_heads, attention_dropout_prob, output_dropout_prob,
                  text_seq_length, image_tokens_per_dim, layernorm_epsilon=1.0e-5,
-                 cogview_sandwich_layernorm=False, cogview_pb_relax=False, mlp_activation='gelu_jit'):
+                 cogview_sandwich_layernorm=False, cogview_pb_relax=False, mlp_activation='gelu_jit',
+                 is_bool_mask=False):
         super(DalleTransformer, self).__init__()
 
         self.num_layers = num_layers
@@ -68,9 +69,9 @@ class DalleTransformer(torch.nn.Module):
             ) for _ in range(num_layers)
         ])
 
-        row_mask = get_row_mask(text_seq_length, image_tokens_per_dim)
-        col_mask = get_col_mask(text_seq_length, image_tokens_per_dim)
-        conv_mask = get_conv_mask(text_seq_length, image_tokens_per_dim)
+        row_mask = get_row_mask(text_seq_length, image_tokens_per_dim, is_bool_mask=is_bool_mask)
+        col_mask = get_col_mask(text_seq_length, image_tokens_per_dim, is_bool_mask=is_bool_mask)
+        conv_mask = get_conv_mask(text_seq_length, image_tokens_per_dim, is_bool_mask=is_bool_mask)
         self.register_buffer('row_mask', row_mask)
         self.register_buffer('col_mask', col_mask)
         self.register_buffer('conv_mask', conv_mask)

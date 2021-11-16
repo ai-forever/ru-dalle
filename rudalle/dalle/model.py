@@ -24,6 +24,7 @@ class DalleModel(torch.nn.Module):
                  loss_img_weight=7,
                  cogview_sandwich_layernorm=False,
                  cogview_pb_relax=False,
+                 is_bool_mask=True,
                  mlp_activation='gelu_jit'):
         super(DalleModel, self).__init__()
         self.device = device
@@ -68,6 +69,7 @@ class DalleModel(torch.nn.Module):
             cogview_sandwich_layernorm=cogview_sandwich_layernorm,
             cogview_pb_relax=cogview_pb_relax,
             mlp_activation=mlp_activation,
+            is_bool_mask=is_bool_mask,
         )
 
     def get_param(self, item):
