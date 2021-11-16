@@ -23,8 +23,8 @@ class DalleModel(torch.nn.Module):
                  image_vocab_size=16384,
                  loss_img_weight=7,
                  cogview_sandwich_layernorm=False,
-                 cogview_pb_relax=False):
-
+                 cogview_pb_relax=False,
+                 mlp_activation='gelu_jit'):
         super(DalleModel, self).__init__()
         self.device = device
         self.image_tokens_per_dim = image_tokens_per_dim
@@ -67,6 +67,7 @@ class DalleModel(torch.nn.Module):
             image_tokens_per_dim=image_tokens_per_dim,
             cogview_sandwich_layernorm=cogview_sandwich_layernorm,
             cogview_pb_relax=cogview_pb_relax,
+            mlp_activation=mlp_activation,
         )
 
     def get_param(self, item):
