@@ -8,14 +8,14 @@ from .utils import divide, split_tensor_along_last_dim
 from .image_attention import get_conv_mask, get_row_mask, get_col_mask
 
 
-@torch.jit.script
-def gelu_impl(x):
-    """OpenAI's gelu implementation."""
+def gelu(x):
     return 0.5 * x * (1.0 + torch.tanh(0.7978845608028654 * x * (1.0 + 0.044715 * x * x)))
 
 
-def gelu(x):
-    return gelu_impl(x)
+@torch.jit.script
+def gelu_jit(x):
+    """OpenAI's gelu implementation."""
+    return gelu(x)
 
 
 class DalleTransformer(torch.nn.Module):
@@ -47,7 +47,7 @@ class DalleTransformer(torch.nn.Module):
 
     def __init__(self, num_layers, hidden_size, num_attention_heads, attention_dropout_prob, output_dropout_prob,
                  text_seq_length, image_tokens_per_dim, layernorm_epsilon=1.0e-5,
-                 cogview_sandwich_layernorm=False, cogview_pb_relax=False):
+                 cogview_sandwich_layernorm=False, cogview_pb_relax=False, mlp_activation='gelu_jit'):
         super(DalleTransformer, self).__init__()
 
         self.num_layers = num_layers
@@ -64,6 +64,7 @@ class DalleTransformer(torch.nn.Module):
                 layernorm_epsilon,
                 cogview_sandwich_layernorm=cogview_sandwich_layernorm,
                 cogview_pb_relax=cogview_pb_relax,
+                mlp_activation=mlp_activation,
             ) for _ in range(num_layers)
         ])
 
@@ -127,7 +128,8 @@ class DalleTransformerLayer(torch.nn.Module):
                  output_dropout_prob,
                  layernorm_epsilon,
                  cogview_sandwich_layernorm=False,
-                 cogview_pb_relax=False):
+                 cogview_pb_relax=False,
+                 mlp_activation='gelu_jit'):
         super(DalleTransformerLayer, self).__init__()
 
         # CogView stabilization of training features, see chapter 2.4 https://arxiv.org/pdf/2105.13290.pdf
@@ -154,7 +156,7 @@ class DalleTransformerLayer(torch.nn.Module):
         self.post_attention_layernorm = LayerNorm(hidden_size, eps=layernorm_epsilon)
 
         # MLP
-        self.mlp = DalleMLP(hidden_size, output_dropout_prob)
+        self.mlp = DalleMLP(hidden_size, output_dropout_prob, activation=mlp_activation)
 
     def forward(self, hidden_states, ltor_mask, has_cache, use_cache):
         # hidden_states: [b, s, h]
@@ -354,8 +356,9 @@ class DalleMLP(torch.nn.Module):
                              after self attention and final output.
     """
 
-    def __init__(self, hidden_size, output_dropout_prob):
+    def __init__(self, hidden_size, output_dropout_prob, activation='gelu_jit'):
         super(DalleMLP, self).__init__()
+        self.activation = activation
         # Project to 4h.
         self.dense_h_to_4h = torch.nn.Linear(hidden_size, 4 * hidden_size)
         # Project back to h.
@@ -370,7 +373,12 @@ class DalleMLP(torch.nn.Module):
 
         # [b, s, 4hp]
         x = self.dense_h_to_4h(hidden_states)
-        x = gelu(x)
+        if self.activation == 'gelu_jit':
+            x = gelu_jit(x)
+        elif self.activation == 'gelu':
+            x = gelu(x)
+        else:
+            raise NotImplementedError('Used MLP activation is not implemented.')
         # [b, s, h]
         x = self.dense_4h_to_h(x)
         if use_cache:
