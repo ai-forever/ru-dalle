@@ -367,7 +367,6 @@ class DalleMLP(torch.nn.Module):
         self.dense_4h_to_h = torch.nn.Linear(4 * hidden_size, hidden_size)
         self.dropout = torch.nn.Dropout(output_dropout_prob)
 
-
     def forward(self, hidden_states):
         # [b, s, 4hp]
         x = self.dense_h_to_4h(hidden_states)
