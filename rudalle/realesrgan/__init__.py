@@ -25,10 +25,10 @@ MODELS = {
 }
 
 
-def get_realesrgan(name, device='cpu', cache_dir='/tmp/rudalle'):
+def get_realesrgan(name, device='cpu', fp16=False, cache_dir='/tmp/rudalle'):
     assert name in MODELS
     config = MODELS[name]
-    model = RealESRGAN(device, config['scale'])
+    model = RealESRGAN(device, config['scale'], fp16=fp16)
     cache_dir = os.path.join(cache_dir, name)
     config_file_url = hf_hub_url(repo_id=config['repo_id'], filename=config['filename'])
     cached_download(config_file_url, cache_dir=cache_dir, force_filename=config['filename'])

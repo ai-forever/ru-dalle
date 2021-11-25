@@ -25,6 +25,12 @@ def vae():
 
 
 @pytest.fixture(scope='module')
+def dwt_vae():
+    vae = get_vae(pretrained=False, dwt=True)
+    yield vae
+
+
+@pytest.fixture(scope='module')
 def yttm_tokenizer():
     tokenizer = get_tokenizer()
     yield tokenizer

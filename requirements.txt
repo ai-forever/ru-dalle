@@ -4,6 +4,7 @@ transformers~=4.10.2
 youtokentome~=1.0.6
 omegaconf>=2.0.0
 einops~=0.3.2
+PyWavelets==1.1.1
 torch
 torchvision
 matplotlib
