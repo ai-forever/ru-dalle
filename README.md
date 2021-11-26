@@ -7,10 +7,11 @@
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/sberbank-ai/ru-dalle/master.svg)](https://results.pre-commit.ci/latest/github/sberbank-ai/ru-dalle/master)
 
 ```
-pip install rudalle==0.0.1rc11
+pip install rudalle==0.1.0
 ```
 ### 🤗 HF Models:
-[ruDALL-E Malevich (XL)](https://huggingface.co/sberbank-ai/rudalle-Malevich)
+[ruDALL-E Malevich (XL)](https://huggingface.co/sberbank-ai/rudalle-Malevich) \
+[ruDALL-E Emojich (XL)](https://huggingface.co/sberbank-ai/rudalle-Emojich) (readme [here](https://github.com/sberbank-ai/ru-dalle/blob/master/Emojich.md))
 
 
 ### Minimal Example:
@@ -63,24 +64,24 @@ for top_k, top_p, images_num in [
 
 show(pil_images, 6)
 ```
-![](./pics/rainbow-full.png)
+![](pics/malevich/rainbow-full.png)
 ### auto cherry-pick by ruCLIP:
 ```python
 top_images, clip_scores = cherry_pick_by_clip(pil_images, text, ruclip, ruclip_processor, device=device, count=6)
 show(top_images, 3)
 ```
-![](./pics/rainbow-cherry-pick.png)
+![](pics/malevich/rainbow-cherry-pick.png)
 ### super resolution:
 ```python
 sr_images = super_resolution(top_images, realesrgan)
 show(sr_images, 3)
 ```
-![](./pics/rainbow-super-resolution.png)
+![](pics/malevich/rainbow-super-resolution.png)
 
 ```python
 text, seed = 'красивая тян из аниме', 6955
 ```
-![](./pics/anime-girl-super-resolution.png)
+![](pics/malevich/anime-girl-super-resolution.png)
 
 
 ### Image Prompt
@@ -89,7 +90,7 @@ see `jupyters/ruDALLE-image-prompts-A100.ipynb`
 text, seed = 'Храм Василия Блаженного', 42
 skyes = [red_sky, sunny_sky, cloudy_sky, night_sky]
 ```
-![](./pics/russian-temple-image-prompt.png)
+![](pics/malevich/russian-temple-image-prompt.png)
 
 
 ### 🚀 Contributors 🚀
