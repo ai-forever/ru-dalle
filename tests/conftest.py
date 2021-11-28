@@ -6,7 +6,7 @@ import PIL
 import pytest
 import requests
 
-from rudalle import get_tokenizer, get_rudalle_model, get_vae, get_realesrgan
+from rudalle import get_tokenizer, get_rudalle_model, get_vae, get_realesrgan, get_emojich_unet
 
 
 TEST_ROOT = dirname(abspath(__file__))
@@ -48,4 +48,10 @@ def sample_image():
 @pytest.fixture(scope='module')
 def small_dalle():
     model = get_rudalle_model('small', pretrained=False, fp16=False, device='cpu')
-    return model
+    yield model
+
+
+@pytest.fixture(scope='module')
+def emojich_unet():
+    model = get_emojich_unet('unet_effnetb5')
+    yield model
