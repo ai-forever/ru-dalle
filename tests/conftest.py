@@ -53,5 +53,5 @@ def small_dalle():
 
 @pytest.fixture(scope='module')
 def emojich_unet():
-    model = get_emojich_unet('unet_effnetb5')
+    model = get_emojich_unet('unet_effnetb7')
     yield model

@@ -12,6 +12,11 @@ MODELS = {
         repo_id='sberbank-ai/rudalle-Emojich',
         filename='pytorch_model.bin',
     ),
+    'unet_effnetb7': dict(
+        encoder_name='efficientnet-b7',
+        repo_id='sberbank-ai/rudalle-Emojich',
+        filename='pytorch_model.bin',
+    ),
 }
 
 
