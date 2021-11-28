@@ -143,3 +143,16 @@ def convert_emoji_to_rgba(pil_images, emojich_unet,  device='cpu', bs=4):
                 final_image = Image.fromarray(final_image)
                 final_images.append(final_image)
     return final_images
+
+
+def show_rgba(rgba_pil_image):
+    img = np.array(rgba_pil_image)
+    fig, ax = plt.subplots(1, 3, figsize=(10, 10), dpi=100)
+    ax[0].imshow(img[:, :, :3])
+    ax[1].imshow(img[:, :, -1])
+    mask = np.repeat(np.expand_dims(img[:, :, -1] < 128, -1), 3, axis=-1)
+    img = img[:, :, :3]
+    img[mask[:, :, 0], 0] = 64
+    img[mask[:, :, 0], 1] = 255
+    img[mask[:, :, 0], 2] = 64
+    ax[2].imshow(img)
