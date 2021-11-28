@@ -118,7 +118,7 @@ def show(pil_images, nrow=4, size=14, save_dir=None, show=True):
         plt.show()
 
 
-def convert_emoji_to_rgba(pil_images, emojich_unet,  device='cpu', bs=4):
+def convert_emoji_to_rgba(pil_images, emojich_unet,  device='cpu', bs=1):
     final_images = []
     with torch.no_grad():
         for chunk in more_itertools.chunked(pil_images, bs):

@@ -51,15 +51,24 @@ show(pil_images, 4)
 ```
 ![](./pics/emojich/emoji-Donald.png)
 
+### Super Resolution:
+```python
+from rudalle.pipelines import super_resolution
+from rudalle import get_realesrgan
+
+device = 'cuda'
+realesrgan = get_realesrgan('x4', device=device)
+sr_images = super_resolution(pil_images, realesrgan)
+```
+
 ### Converting to Telegram Stickers format (512x512 RGBA)
-Also, don't forget you can use super resolution before :)
 ```python
 from rudalle.pipelines import convert_emoji_to_rgba, show_rgba
 from rudalle import get_emojich_unet
 
 device = 'cuda'
-emojich_unet = get_emojich_unet('unet_effnetb5').to(device)
-rgba_images = convert_emoji_to_rgba(pil_images, emojich_unet,  device=device)
+emojich_unet = get_emojich_unet('unet_effnetb7').to(device)
+rgba_images = convert_emoji_to_rgba(sr_images, emojich_unet,  device=device)
 for rgba_image in rgba_images:
     show_rgba(rgba_image);
 ```
