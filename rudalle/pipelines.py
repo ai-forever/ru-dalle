@@ -3,6 +3,7 @@ import os
 from glob import glob
 from os.path import join
 
+import cv2
 import torch
 import torchvision
 import transformers
@@ -10,6 +11,7 @@ import more_itertools
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm.auto import tqdm
+from PIL import Image
 
 from . import utils
 
@@ -114,3 +116,43 @@ def show(pil_images, nrow=4, size=14, save_dir=None, show=True):
     if show:
         fix.show()
         plt.show()
+
+
+def convert_emoji_to_rgba(pil_images, emojich_unet,  device='cpu', bs=4):
+    final_images = []
+    with torch.no_grad():
+        for chunk in more_itertools.chunked(pil_images, bs):
+            images = []
+            for pil_image in chunk:
+                image = np.array(pil_image.resize((512, 512)))[:, :, :3]
+                image = image.astype(np.float32) / 255.0
+                image = torch.from_numpy(image).permute(2, 0, 1)
+                images.append(image)
+            images = torch.nn.utils.rnn.pad_sequence(images, batch_first=True)
+            pred_masks = emojich_unet(images.to(device))[:, 0, :, :]
+            pred_masks = torch.sigmoid(pred_masks)
+            pred_masks = (pred_masks > 0.5).int().cpu().numpy()
+            pred_masks = (pred_masks * 255).astype(np.uint8)
+            for pil_image, pred_mask in zip(chunk, pred_masks):
+                ret, thresh = cv2.threshold(pred_mask, 0, 255, 0)
+                contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+                cv2.drawContours(pred_mask, contours, -1, (0, 0, 0), 1)
+                final_image = np.zeros((512, 512, 4), np.uint8)
+                final_image[:, :, :3] = np.array(pil_image.resize((512, 512)))[:, :, :3]
+                final_image[:, :, -1] = pred_mask
+                final_image = Image.fromarray(final_image)
+                final_images.append(final_image)
+    return final_images
+
+
+def show_rgba(rgba_pil_image):
+    img = np.array(rgba_pil_image)
+    fig, ax = plt.subplots(1, 3, figsize=(10, 10), dpi=100)
+    ax[0].imshow(img[:, :, :3])
+    ax[1].imshow(img[:, :, -1])
+    mask = np.repeat(np.expand_dims(img[:, :, -1] < 128, -1), 3, axis=-1)
+    img = img[:, :, :3]
+    img[mask[:, :, 0], 0] = 64
+    img[mask[:, :, 0], 1] = 255
+    img[mask[:, :, 0], 2] = 64
+    ax[2].imshow(img)
