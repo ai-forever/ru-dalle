@@ -2,7 +2,6 @@
 import os
 
 import torch
-import segmentation_models_pytorch as smp
 from huggingface_hub import hf_hub_url, cached_download
 
 
@@ -23,6 +22,14 @@ MODELS = {
 def get_emojich_unet(name, cache_dir='/tmp/rudalle'):
     assert name in MODELS
     config = MODELS[name]
+    try:
+        import segmentation_models_pytorch as smp
+    except ImportError as e:
+        import timm
+        if timm.version.__version__ < '0.4.12':
+            print('Warning! If you would like to use emojich_unet, you should reinstall timm package:'
+                  '"pip install timm==0.4.12"')
+        raise e
     model = smp.Unet(
         encoder_name=config['encoder_name'],
         encoder_weights=None,
