@@ -51,6 +51,19 @@ show(pil_images, 4)
 ```
 ![](./pics/emojich/emoji-Donald.png)
 
+### Converting to Telegram Stickers format (512x512 RGBA)
+Also, don't forget you can use super resolution before :)
+```python
+from rudalle.pipelines import convert_emoji_to_rgba, show_rgba
+from rudalle import get_emojich_unet
+
+device = 'cuda'
+emojich_unet = get_emojich_unet('unet_effnetb5').to(device)
+rgba_images = convert_emoji_to_rgba(pil_images, emojich_unet,  device=device)
+for rgba_image in rgba_images:
+    show_rgba(rgba_image);
+```
+![](./pics/emojich/emojich-stickers.png)
 
 ### Examples of generated emojis
 

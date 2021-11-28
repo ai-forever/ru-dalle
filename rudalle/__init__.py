@@ -24,4 +24,4 @@ __all__ = [
     'image_prompts',
 ]
 
-__version__ = '0.2.0'
+__version__ = '0.2.1'
