@@ -24,12 +24,11 @@ def get_emojich_unet(name, cache_dir='/tmp/rudalle'):
     config = MODELS[name]
     try:
         import segmentation_models_pytorch as smp
-    except ImportError as e:
-        import timm
-        if timm.version.__version__ < '0.4.12':
-            print('Warning! If you would like to use emojich_unet, you should reinstall timm package:'
-                  '"pip install timm==0.4.12"')
-        raise e
+    except ImportError:
+        import logging
+        logging.warning('If you would like to use emojich_unet, you should reinstall timm package:'
+                        '"pip install timm==0.4.12"')
+        return
     model = smp.Unet(
         encoder_name=config['encoder_name'],
         encoder_weights=None,
