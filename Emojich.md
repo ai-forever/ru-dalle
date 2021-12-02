@@ -68,7 +68,7 @@ from rudalle import get_emojich_unet
 
 device = 'cuda'
 emojich_unet = get_emojich_unet('unet_effnetb7').to(device)
-rgba_images = convert_emoji_to_rgba(sr_images, emojich_unet,  device=device)
+rgba_images, _ = convert_emoji_to_rgba(sr_images, emojich_unet,  device=device)
 for rgba_image in rgba_images:
     show_rgba(rgba_image);
 ```

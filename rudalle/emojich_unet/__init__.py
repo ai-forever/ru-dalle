@@ -9,12 +9,8 @@ MODELS = {
     'unet_effnetb5': dict(
         encoder_name='efficientnet-b5',
         repo_id='sberbank-ai/rudalle-Emojich',
-        filename='pytorch_model.bin',
-    ),
-    'unet_effnetb7': dict(
-        encoder_name='efficientnet-b7',
-        repo_id='sberbank-ai/rudalle-Emojich',
-        filename='pytorch_model.bin',
+        filename='pytorch_model_v2.bin',
+        classes=2,
     ),
 }
 
@@ -33,7 +29,7 @@ def get_emojich_unet(name, cache_dir='/tmp/rudalle'):
         encoder_name=config['encoder_name'],
         encoder_weights=None,
         in_channels=3,
-        classes=1,
+        classes=config['classes'],
     )
     cache_dir = os.path.join(cache_dir, name)
     filename = config['filename']
