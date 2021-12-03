@@ -105,4 +105,5 @@ skyes = [red_sky, sunny_sky, cloudy_sky, night_sky]
 ### Social Media
 
 [![](./pics/habr.svg)](https://habr.com/ru/company/sberdevices/blog/586926/)
+[![](./pics/habr_eng.svg)](https://habr.com/ru/company/sberbank/blog/589673/)
 [![](https://img.shields.io/badge/Instagram-E4405F?style=for-the-badge&logo=instagram&logoColor=white)](https://instagram.com/rudalle.official)
