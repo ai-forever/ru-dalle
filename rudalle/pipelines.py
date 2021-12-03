@@ -118,8 +118,25 @@ def show(pil_images, nrow=4, size=14, save_dir=None, show=True):
         plt.show()
 
 
-def convert_emoji_to_rgba(pil_images, emojich_unet,  device='cpu', bs=1):
-    final_images = []
+def classic_convert_emoji_to_rgba(np_image, lower_thr=240, upper_thr=255, width=2):
+    img = np_image[:, :, :3].copy()
+    lower = np.array([lower_thr, lower_thr, lower_thr], dtype='uint8')
+    upper = np.array([upper_thr, upper_thr, upper_thr], dtype='uint8')
+    mask = cv2.inRange(img, lower, upper)
+    ret, thresh = cv2.threshold(mask, 0, 255, 0)
+    contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+    a_channel = np.ones((512, 512), dtype=np.uint8)*255
+    if len(contours) != 0:
+        contours = sorted(contours, key=lambda x: x.shape[0])[-7:]
+        cv2.fillPoly(a_channel, contours, (0, 0, 0))
+        cv2.drawContours(a_channel, contours, -1, (0, 0, 0), width)
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2RGBA)
+    img[:, :, 3] = a_channel
+    return img
+
+
+def convert_emoji_to_rgba(pil_images, emojich_unet,  device='cpu', bs=1, score_thr=0.99):
+    final_images, runs = [], []
     with torch.no_grad():
         for chunk in more_itertools.chunked(pil_images, bs):
             images = []
@@ -129,20 +146,25 @@ def convert_emoji_to_rgba(pil_images, emojich_unet,  device='cpu', bs=1):
                 image = torch.from_numpy(image).permute(2, 0, 1)
                 images.append(image)
             images = torch.nn.utils.rnn.pad_sequence(images, batch_first=True)
-            pred_masks = emojich_unet(images.to(device))[:, 0, :, :]
-            pred_masks = torch.sigmoid(pred_masks)
-            pred_masks = (pred_masks > 0.5).int().cpu().numpy()
+            pred_masks = emojich_unet(images.to(device))
+            pred_masks = torch.softmax(pred_masks, 1)
+            scores, pred_masks = torch.max(pred_masks, 1)
+            pred_masks = pred_masks.int().cpu().numpy()
             pred_masks = (pred_masks * 255).astype(np.uint8)
-            for pil_image, pred_mask in zip(chunk, pred_masks):
-                ret, thresh = cv2.threshold(pred_mask, 0, 255, 0)
-                contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-                cv2.drawContours(pred_mask, contours, -1, (0, 0, 0), 1)
+            for pil_image, pred_mask, score in zip(chunk, pred_masks, scores):
+                score = score.mean().item()
                 final_image = np.zeros((512, 512, 4), np.uint8)
                 final_image[:, :, :3] = np.array(pil_image.resize((512, 512)))[:, :, :3]
-                final_image[:, :, -1] = pred_mask
+                if score > score_thr:
+                    run = 'unet'
+                    final_image[:, :, -1] = pred_mask
+                else:
+                    run = 'classic'
+                    final_image = classic_convert_emoji_to_rgba(final_image)
                 final_image = Image.fromarray(final_image)
                 final_images.append(final_image)
-    return final_images
+                runs.append(run)
+    return final_images, runs
 
 
 def show_rgba(rgba_pil_image):
