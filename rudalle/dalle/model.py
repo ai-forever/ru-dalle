@@ -121,7 +121,9 @@ class DalleModel(torch.nn.Module):
 
         attention_mask = attention_mask[:, :, :embeddings.shape[1], :embeddings.shape[1]]
         transformer_output, present_has_cache = self.transformer(
-            embeddings, attention_mask, has_cache=has_cache, use_cache=use_cache, gradient_checkpointing=gradient_checkpointing)
+            embeddings, attention_mask,
+            has_cache=has_cache, use_cache=use_cache,
+            gradient_checkpointing=gradient_checkpointing)
 
         logits = self.to_logits(transformer_output)
         if return_loss is False:
