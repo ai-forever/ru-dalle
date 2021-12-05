@@ -122,9 +122,11 @@ class DalleTransformer(torch.nn.Module):
                                     mask,
                                     use_cache=False, has_cache=False))
             else:
-                hidden_states, present_has_cache = layer(hidden_states, mask, has_cache=has_cache, use_cache=use_cache)
+                hidden_states, present_has_cache = layer(
+                    hidden_states, mask, has_cache=has_cache, use_cache=use_cache)
         if gradient_checkpointing:
-            hidden_states = torch.utils.checkpoint.checkpoint_sequential(layers, gradient_checkpointing, embeddings)
+            hidden_states = torch.utils.checkpoint.checkpoint_sequential(
+                layers, gradient_checkpointing, hidden_states)
         output = self.final_layernorm(hidden_states)
         return output, present_has_cache
 
