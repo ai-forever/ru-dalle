@@ -22,7 +22,7 @@ class Layer(torch.nn.Module):
     """
     Helper class for gradient checkpointing.
     """
-    
+
     def __init__(self, x, f, *args, **kwargs):
         super(Layer, self).__init__()
         # module to checkpoint
@@ -32,7 +32,7 @@ class Layer(torch.nn.Module):
         # arguments to the module
         self.args = args
         self.kwargs = kwargs
-    
+
     def forward(self, x):
         return self.f(self.x(x, *self.args, **self.kwargs))
 
