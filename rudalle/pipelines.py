@@ -100,6 +100,7 @@ def show(pil_images, nrow=4, size=14, save_dir=None, show=True):
         for i, pil_image in enumerate(pil_images):
             pil_image.save(join(save_dir, f'img_{count+i}.png'))
 
+    pil_images = [pil_image.convert('RGB') for pil_image in pil_images]
     imgs = torchvision.utils.make_grid(utils.pil_list_to_torch_tensors(pil_images), nrow=nrow)
     if not isinstance(imgs, list):
         imgs = [imgs.cpu()]
