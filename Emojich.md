@@ -90,7 +90,7 @@ For making better generative emojis should use more attempts (~512) and select t
 Feel free to cite our work in your research if it is helpful for you
 ```
 @misc{shonenkov2021emojich,
-      title={Emojich -- zero-shot emoji generation using Russian language: a technical report}, 
+      title={Emojich -- zero-shot emoji generation using Russian language: a technical report},
       author={Alex Shonenkov and Daria Bakshandaeva and Denis Dimitrov and Aleksandr Nikolich},
       year={2021},
       eprint={2112.02448},
