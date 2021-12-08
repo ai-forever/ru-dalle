@@ -116,7 +116,7 @@ class DalleTransformer(torch.nn.Module):
             layer_mask = self._get_layer_mask(i)[:mask.size(2), :mask.size(3)]
             mask = torch.mul(attention_mask, layer_mask)
             if gradient_checkpointing:
-                layers.append(Layer(layer[i],
+                layers.append(Layer(layer,
                                     # only get the embeddings, not present_has_cache
                                     lambda x: x[0],
                                     mask,
@@ -127,6 +127,7 @@ class DalleTransformer(torch.nn.Module):
         if gradient_checkpointing:
             hidden_states = torch.utils.checkpoint.checkpoint_sequential(
                 layers, gradient_checkpointing, hidden_states)
+            present_has_cache = False
         output = self.final_layernorm(hidden_states)
         return output, present_has_cache
 
