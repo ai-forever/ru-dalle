@@ -1,4 +1,4 @@
-[[Paper]](https://arxiv.org/abs/2112.02448) [[Model Card]](https://huggingface.co/sberbank-ai/rudalle-Emojich) [[Kaggle]](https://www.kaggle.com/shonenkov/emojich-rudall-e) [[Dataset]](https://www.kaggle.com/shonenkov/russian-emoji)
+[[Paper]](https://arxiv.org/abs/2112.02448) [[Хабр]](https://habr.com/ru/company/sberbank/blog/593893/) [[Model Card]](https://huggingface.co/sberbank-ai/rudalle-Emojich) [[Kaggle]](https://www.kaggle.com/shonenkov/emojich-rudall-e) [[Dataset]](https://www.kaggle.com/shonenkov/russian-emoji)
 # Emojich
 ![](./pics/emojich/emojich_rgba_100.png)
 ### generate emojis from text
