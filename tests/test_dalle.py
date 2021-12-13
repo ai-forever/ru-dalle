@@ -32,7 +32,7 @@ def test_forward_step_and_criterion(text, sample_image, yttm_tokenizer, vae, sma
         assert type(loss_values) == dict
 
 
-@pytest.mark.skipif(os.getenv('PYTEST_RUN_SKIPPED') != '1', reason="Slow, for manual run only.")
+@pytest.mark.skipif(os.getenv('PYTEST_RUN_SKIPPED') != '1', reason='Slow, for manual run only.')
 @pytest.mark.parametrize('text', [
     'рыжий котик',
 ])
@@ -59,7 +59,7 @@ def test_xl_forward(text, sample_image_cat, yttm_tokenizer, pretrained_vae, xl_d
         assert 3.7 < loss < 3.9
 
 
-@pytest.mark.skipif(os.getenv('PYTEST_RUN_SKIPPED') != '1', reason="Slow, for manual run only.")
+@pytest.mark.skipif(os.getenv('PYTEST_RUN_SKIPPED') != '1', reason='Slow, for manual run only.')
 @pytest.mark.parametrize('text', [
     'рыжий котик',
 ])
