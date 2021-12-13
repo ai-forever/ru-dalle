@@ -24,6 +24,8 @@ class DalleModel(torch.nn.Module):
                  loss_img_weight=7,
                  cogview_sandwich_layernorm=False,
                  cogview_pb_relax=False,
+                 cogview_layernorm_prescale=False,
+                 custom_relax=False,
                  is_bool_mask=True,
                  mlp_activation='gelu_jit'):
         super(DalleModel, self).__init__()
@@ -68,6 +70,8 @@ class DalleModel(torch.nn.Module):
             image_tokens_per_dim=image_tokens_per_dim,
             cogview_sandwich_layernorm=cogview_sandwich_layernorm,
             cogview_pb_relax=cogview_pb_relax,
+            cogview_layernorm_prescale=cogview_layernorm_prescale,
+            custom_relax=custom_relax,
             mlp_activation=mlp_activation,
             is_bool_mask=is_bool_mask,
         )
@@ -100,14 +104,13 @@ class DalleModel(torch.nn.Module):
         text = torch.where(text == 0, text_range, text)
         # some hardcode :)
         text = F.pad(text, (1, 0), value=2)
-        text_embeddings = self.text_embeddings(text) + \
-            self.text_pos_embeddings(torch.arange(text.shape[1], device=self.device))
-
+        text_pos = self.text_pos_embeddings(torch.arange(text.shape[1], device=self.device))
+        text_embeddings = self.text_embeddings(text) + text_pos
         image_input_ids = input_ids[:, self.text_seq_length:]
 
         if exists(image_input_ids) and not is_empty(image_input_ids):
-            image_embeddings = self.image_embeddings(image_input_ids) + \
-                self.get_image_pos_embeddings(image_input_ids, past_length=0)
+            img_pos = self.get_image_pos_embeddings(image_input_ids, past_length=0)
+            image_embeddings = self.image_embeddings(image_input_ids) + img_pos
             embeddings = torch.cat((text_embeddings, image_embeddings), dim=1)
         else:
             embeddings = text_embeddings
