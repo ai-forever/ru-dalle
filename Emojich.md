@@ -1,3 +1,4 @@
+[[Paper]](https://arxiv.org/abs/2112.02448) [[Хабр]](https://habr.com/ru/company/sberbank/blog/593893/) [[Model Card]](https://huggingface.co/sberbank-ai/rudalle-Emojich) [[Kaggle]](https://www.kaggle.com/shonenkov/emojich-rudall-e) [[Dataset]](https://www.kaggle.com/shonenkov/russian-emoji)
 # Emojich
 ![](./pics/emojich/emojich_rgba_100.png)
 ### generate emojis from text
@@ -83,3 +84,17 @@ For making better generative emojis should use more attempts (~512) and select t
 *Remember, the great art makers became "great" after creating just only one masterpiece.*
 
 ![](./pics/emojich/examples.png)
+
+
+### Citation
+Feel free to cite our work in your research if it is helpful for you
+```
+@misc{shonenkov2021emojich,
+      title={Emojich -- zero-shot emoji generation using Russian language: a technical report},
+      author={Alex Shonenkov and Daria Bakshandaeva and Denis Dimitrov and Aleksandr Nikolich},
+      year={2021},
+      eprint={2112.02448},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL}
+}
+```

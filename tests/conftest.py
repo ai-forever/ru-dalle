@@ -25,6 +25,12 @@ def vae():
 
 
 @pytest.fixture(scope='module')
+def pretrained_vae():
+    vae = get_vae()
+    yield vae
+
+
+@pytest.fixture(scope='module')
 def dwt_vae():
     vae = get_vae(pretrained=False, dwt=True)
     yield vae
@@ -46,8 +52,32 @@ def sample_image():
 
 
 @pytest.fixture(scope='module')
+def sample_image_cat():
+    image = PIL.Image.open('pics/ginger_cat.jpeg')
+    yield image
+
+
+@pytest.fixture(scope='module')
 def small_dalle():
     model = get_rudalle_model('small', pretrained=False, fp16=False, device='cpu')
+    yield model
+
+
+@pytest.fixture(scope='module')
+def xl_dalle():
+    model = get_rudalle_model('Malevich', pretrained=True, fp16=False, device='cpu')
+    yield model
+
+
+@pytest.fixture(scope='module')
+def xxl_dalle():
+    model = get_rudalle_model(
+        'Kandinsky',
+        pretrained=False,
+        fp16=False,
+        device='cpu',
+        cogview_layernorm_prescale=True,
+        custom_relax=True)
     yield model
 
 
