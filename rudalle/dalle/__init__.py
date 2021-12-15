@@ -23,7 +23,7 @@ MODELS = {
             text_seq_length=128,
             cogview_sandwich_layernorm=True,
             cogview_pb_relax=True,
-            vocab_size=16384+128,
+            vocab_size=16384 + 128,
             image_vocab_size=8192,
         ),
         repo_id='sberbank-ai/rudalle-Malevich',
@@ -53,6 +53,30 @@ MODELS = {
         authors='SberAI',
         full_description='',  # TODO
     ),
+    'Kandinsky': dict(
+        description='Kandinsky is large 12 billion params model from the family GPT3-like, '
+                    'that uses Russian language and text+image multi-modality.',
+        model_params=dict(
+            num_layers=64,
+            hidden_size=3840,
+            num_attention_heads=60,
+            embedding_dropout_prob=0.1,
+            output_dropout_prob=0.1,
+            attention_dropout_prob=0.1,
+            image_tokens_per_dim=32,
+            text_seq_length=128,
+            cogview_sandwich_layernorm=True,
+            cogview_pb_relax=True,
+            cogview_layernorm_prescale=True,
+            custom_relax=True,
+            vocab_size=16384 + 128,
+            image_vocab_size=8192,
+        ),
+        repo_id='',
+        filename='',
+        authors='SberAI, SberDevices',
+        full_description='',  # TODO
+    ),
     'small': dict(
         description='',
         model_params=dict(
@@ -66,7 +90,7 @@ MODELS = {
             text_seq_length=128,
             cogview_sandwich_layernorm=True,
             cogview_pb_relax=True,
-            vocab_size=16384+128,
+            vocab_size=16384 + 128,
             image_vocab_size=8192,
         ),
         repo_id='',
