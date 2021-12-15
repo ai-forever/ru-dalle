@@ -371,10 +371,11 @@ class DalleSelfAttention(torch.nn.Module):
 
         if self.custom_relax:
             scale = value_layer.detach().max().item()
-            value_layer /= scale
-        # Context layer.
-        # [b, np, s, hn]
-        context_layer = torch.matmul(attention_probs, value_layer)
+            context_layer = torch.matmul(attention_probs, value_layer / scale)
+        else:
+            # Context layer.
+            # [b, np, s, hn]
+            context_layer = torch.matmul(attention_probs, value_layer)
 
         # [b, s, np, hn]
         context_layer = context_layer.permute(0, 2, 1, 3).contiguous()
