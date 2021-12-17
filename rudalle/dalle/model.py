@@ -96,6 +96,7 @@ class DalleModel(torch.nn.Module):
             return_loss=False,
             has_cache=False,
             use_cache=False,
+            gradient_checkpointing=None,
     ):
         text = input_ids[:, :self.text_seq_length]
         text_range = torch.arange(self.text_seq_length)
@@ -123,7 +124,9 @@ class DalleModel(torch.nn.Module):
 
         attention_mask = attention_mask[:, :, :embeddings.shape[1], :embeddings.shape[1]]
         transformer_output, present_has_cache = self.transformer(
-            embeddings, attention_mask, has_cache=has_cache, use_cache=use_cache)
+            embeddings, attention_mask,
+            has_cache=has_cache, use_cache=use_cache,
+            gradient_checkpointing=gradient_checkpointing)
 
         logits = self.to_logits(transformer_output)
         if return_loss is False:

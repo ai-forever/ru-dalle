@@ -18,6 +18,25 @@ def gelu_jit(x):
     return gelu(x)
 
 
+class Layer(torch.nn.Module):
+    """
+    Helper class for gradient checkpointing.
+    """
+
+    def __init__(self, x, f, *args, **kwargs):
+        super(Layer, self).__init__()
+        # module to checkpoint
+        self.x = x
+        # post-processing function
+        self.f = f
+        # arguments to the module
+        self.args = args
+        self.kwargs = kwargs
+
+    def forward(self, x):
+        return self.f(self.x(x, *self.args, **self.kwargs))
+
+
 def rescale_max(h, scale=False):
     if scale:
         # This transformation does not affect following layernorm output.
@@ -110,12 +129,27 @@ class DalleTransformer(torch.nn.Module):
             layer_mask = self.conv_mask
         return layer_mask
 
-    def forward(self, hidden_states, attention_mask, has_cache, use_cache):
+    def forward(self, hidden_states, attention_mask, has_cache, use_cache, gradient_checkpointing=None):
+        if gradient_checkpointing:
+            assert not use_cache
+            layers = []
         for i, layer in enumerate(self.layers):
             mask = attention_mask
             layer_mask = self._get_layer_mask(i)[:mask.size(2), :mask.size(3)]
             mask = torch.mul(attention_mask, layer_mask)
-            hidden_states, present_has_cache = layer(hidden_states, mask, has_cache=has_cache, use_cache=use_cache)
+            if gradient_checkpointing:
+                layers.append(Layer(layer,
+                                    # only get the embeddings, not present_has_cache
+                                    lambda x: x[0],
+                                    mask,
+                                    use_cache=False, has_cache=False))
+            else:
+                hidden_states, present_has_cache = layer(
+                    hidden_states, mask, has_cache=has_cache, use_cache=use_cache)
+        if gradient_checkpointing:
+            hidden_states = torch.utils.checkpoint.checkpoint_sequential(
+                layers, gradient_checkpointing, hidden_states)
+            present_has_cache = False
         hidden_states = rescale_max(hidden_states, self.custom_relax)
         output = self.final_layernorm(hidden_states)
         return output, present_has_cache
