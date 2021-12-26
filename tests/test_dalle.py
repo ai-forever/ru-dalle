@@ -6,6 +6,27 @@ import pytest
 from .test_vae import preprocess
 
 
+def test_forward_step_tensors(small_dalle):
+    bs = 4
+    text_seq_length = small_dalle.get_param('text_seq_length')
+    total_seq_length = small_dalle.get_param('total_seq_length')
+    device = small_dalle.get_param('device')
+    attention_mask = torch.tril(torch.ones((bs, 1, total_seq_length, total_seq_length), device=device))
+    with torch.no_grad():
+        text_input_ids = torch.tensor([
+            [*range(1000, 1000 + text_seq_length - 11), 2, *[0]*10] for _ in range(bs)
+        ]).long()
+
+        image_input_ids = torch.tensor([
+            [*range(5000, 5000 + total_seq_length - text_seq_length)] for _ in range(bs)
+        ]).long()
+
+        input_ids = torch.cat((text_input_ids, image_input_ids), dim=1)
+        loss, loss_values = small_dalle.forward(input_ids, attention_mask, return_loss=True)
+        assert type(loss.data.detach().item()) == float
+        assert type(loss_values) == dict
+
+
 @pytest.mark.parametrize('text', [
     'мальчик играет с оленем',
 ])

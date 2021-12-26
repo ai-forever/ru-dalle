@@ -27,7 +27,7 @@ MODELS = {
             image_vocab_size=8192,
         ),
         repo_id='sberbank-ai/rudalle-Malevich',
-        filename='pytorch_model_v2.bin',
+        filename='pytorch_model_v3.bin',
         authors='SberAI, SberDevices',
         full_description='',  # TODO
     ),

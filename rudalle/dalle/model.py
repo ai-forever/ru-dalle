@@ -103,8 +103,6 @@ class DalleModel(torch.nn.Module):
         text_range += (self.vocab_size - self.text_seq_length)
         text_range = text_range.to(self.device)
         text = torch.where(text == 0, text_range, text)
-        # some hardcode :)
-        text = F.pad(text, (1, 0), value=2)
         text_pos = self.text_pos_embeddings(torch.arange(text.shape[1], device=self.device))
         text_embeddings = self.text_embeddings(text) + text_pos
         image_input_ids = input_ids[:, self.text_seq_length:]
@@ -115,9 +113,6 @@ class DalleModel(torch.nn.Module):
             embeddings = torch.cat((text_embeddings, image_embeddings), dim=1)
         else:
             embeddings = text_embeddings
-        # some hardcode :)
-        if embeddings.shape[1] > self.total_seq_length:
-            embeddings = embeddings[:, :-1]
 
         alpha = 0.1
         embeddings = embeddings * alpha + embeddings.detach() * (1-alpha)
@@ -136,7 +131,7 @@ class DalleModel(torch.nn.Module):
         logits = rearrange(logits, 'b n c -> b c n')
 
         text_logits = logits[:, :self.vocab_size, :self.text_seq_length].contiguous().float()
-        image_logits = logits[:, self.vocab_size:, self.text_seq_length:].contiguous().float()
+        image_logits = logits[:, self.vocab_size:, self.text_seq_length:-1].contiguous().float()
 
         loss_text = F.cross_entropy(
             text_logits,
