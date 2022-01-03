@@ -62,7 +62,7 @@ class ImagePrompts:
         mask = mask.reshape(-1).bool()
 
         image_prompts = vqg_img.reshape((bs, -1))
-        image_prompts_idx = np.arange(vqg_img_w  * vqg_img_h)
+        image_prompts_idx = np.arange(vqg_img_w * vqg_img_h)
         image_prompts_idx = set(image_prompts_idx[mask])
 
         return image_prompts_idx, image_prompts
