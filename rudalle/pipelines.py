@@ -3,7 +3,6 @@ import os
 from glob import glob
 from os.path import join
 
-import cv2
 import torch
 import torchvision
 import transformers
@@ -120,6 +119,7 @@ def show(pil_images, nrow=4, size=14, save_dir=None, show=True):
 
 
 def classic_convert_emoji_to_rgba(np_image, lower_thr=240, upper_thr=255, width=2):
+    import cv2  # noqa
     img = np_image[:, :, :3].copy()
     lower = np.array([lower_thr, lower_thr, lower_thr], dtype='uint8')
     upper = np.array([upper_thr, upper_thr, upper_thr], dtype='uint8')
