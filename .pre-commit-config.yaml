@@ -17,6 +17,6 @@ repos:
     -   id: flake8
         args: ['--config=setup.cfg']
 -   repo: https://github.com/pre-commit/mirrors-autopep8
-    rev: v1.5.7
+    rev: v1.6.0
     hooks:
     -   id: autopep8
