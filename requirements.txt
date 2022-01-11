@@ -10,4 +10,4 @@ opencv-python==4.5.4.60
 torch
 torchvision
 matplotlib
-ruclip==0.0.1
+ruclip==0.0.1rc7
