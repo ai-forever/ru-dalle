@@ -85,7 +85,8 @@ class DalleTransformer(torch.nn.Module):
                  cogview_layernorm_prescale=False,
                  custom_relax=False,
                  mlp_activation='gelu_jit',
-                 is_bool_mask=False):
+                 is_bool_mask=False,
+                 hf_version='v3'):
         super(DalleTransformer, self).__init__()
 
         self.num_layers = num_layers
@@ -93,7 +94,7 @@ class DalleTransformer(torch.nn.Module):
         self.cogview_pb_relax = cogview_pb_relax
         # Additional stabilization tweak for large models
         self.custom_relax = custom_relax
-
+        self.hf_version = hf_version
         # Transformer layers.
         self.layers = torch.nn.ModuleList([
             DalleTransformerLayer(
@@ -112,7 +113,8 @@ class DalleTransformer(torch.nn.Module):
 
         row_mask = get_row_mask(text_seq_length, image_tokens_per_dim, is_bool_mask=is_bool_mask)
         col_mask = get_col_mask(text_seq_length, image_tokens_per_dim, is_bool_mask=is_bool_mask)
-        conv_mask = get_conv_mask(text_seq_length, image_tokens_per_dim, is_bool_mask=is_bool_mask)
+        conv_mask = get_conv_mask(text_seq_length, image_tokens_per_dim, is_bool_mask=is_bool_mask,
+                                  hf_version=self.hf_version)
         self.register_buffer('row_mask', row_mask)
         self.register_buffer('col_mask', col_mask)
         self.register_buffer('conv_mask', conv_mask)

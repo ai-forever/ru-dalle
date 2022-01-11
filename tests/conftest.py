@@ -59,7 +59,7 @@ def sample_image_cat():
 
 @pytest.fixture(scope='module')
 def small_dalle():
-    model = get_rudalle_model('small', pretrained=False, fp16=False, device='cpu')
+    model = get_rudalle_model('dummy', pretrained=False, fp16=False, device='cpu')
     yield model
 
 

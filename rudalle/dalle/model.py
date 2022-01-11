@@ -27,7 +27,8 @@ class DalleModel(torch.nn.Module):
                  cogview_layernorm_prescale=False,
                  custom_relax=False,
                  is_bool_mask=True,
-                 mlp_activation='gelu_jit'):
+                 mlp_activation='gelu_jit',
+                 hf_version='v3'):
         super(DalleModel, self).__init__()
         self.device = device
         self.image_tokens_per_dim = image_tokens_per_dim
@@ -37,6 +38,8 @@ class DalleModel(torch.nn.Module):
         self.total_vocab_size = vocab_size + image_vocab_size
         self.vocab_size = vocab_size
         self.loss_img_weight = loss_img_weight
+
+        self.hf_version = hf_version
 
         init_method = init_method_normal(std=0.02)
 
@@ -74,6 +77,7 @@ class DalleModel(torch.nn.Module):
             custom_relax=custom_relax,
             mlp_activation=mlp_activation,
             is_bool_mask=is_bool_mask,
+            hf_version=self.hf_version,
         )
 
     def get_param(self, item):
@@ -103,8 +107,9 @@ class DalleModel(torch.nn.Module):
         text_range += (self.vocab_size - self.text_seq_length)
         text_range = text_range.to(self.device)
         text = torch.where(text == 0, text_range, text)
-        # some hardcode :)
-        text = F.pad(text, (1, 0), value=2)
+        if self.hf_version == 'v2':
+            # some hardcode :)
+            text = F.pad(text, (1, 0), value=2)
         text_pos = self.text_pos_embeddings(torch.arange(text.shape[1], device=self.device))
         text_embeddings = self.text_embeddings(text) + text_pos
         image_input_ids = input_ids[:, self.text_seq_length:]
@@ -115,9 +120,11 @@ class DalleModel(torch.nn.Module):
             embeddings = torch.cat((text_embeddings, image_embeddings), dim=1)
         else:
             embeddings = text_embeddings
-        # some hardcode :)
-        if embeddings.shape[1] > self.total_seq_length:
-            embeddings = embeddings[:, :-1]
+
+        if self.hf_version == 'v2':
+            # some hardcode :)
+            if embeddings.shape[1] > self.total_seq_length:
+                embeddings = embeddings[:, :-1]
 
         alpha = 0.1
         embeddings = embeddings * alpha + embeddings.detach() * (1-alpha)
@@ -136,7 +143,12 @@ class DalleModel(torch.nn.Module):
         logits = rearrange(logits, 'b n c -> b c n')
 
         text_logits = logits[:, :self.vocab_size, :self.text_seq_length].contiguous().float()
-        image_logits = logits[:, self.vocab_size:, self.text_seq_length:].contiguous().float()
+        if self.hf_version == 'v3':
+            image_logits = logits[:, self.vocab_size:, self.text_seq_length:-1].contiguous().float()
+        elif self.hf_version == 'v2':
+            image_logits = logits[:, self.vocab_size:, self.text_seq_length:].contiguous().float()
+        else:
+            raise ValueError(f'Unknown hf_version: {self.hf_version}')
 
         loss_text = F.cross_entropy(
             text_logits,

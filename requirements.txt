@@ -1,5 +1,5 @@
 taming-transformers==0.0.1
-more_itertools~=8.10.0
+more_itertools~=8.12.0
 transformers~=4.10.2
 youtokentome~=1.0.6
 omegaconf>=2.0.0

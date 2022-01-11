@@ -3,15 +3,16 @@ import os
 from glob import glob
 from os.path import join
 
-import cv2
 import torch
 import torchvision
 import transformers
 import more_itertools
 import numpy as np
 import matplotlib.pyplot as plt
+import torch.nn.functional as F
 from tqdm.auto import tqdm
 from PIL import Image
+from einops import rearrange
 
 from . import utils
 
@@ -30,14 +31,13 @@ def generate_images(text, tokenizer, dalle, vae, top_k, top_p, images_num, image
 
     text = text.lower().strip()
     input_ids = tokenizer.encode_text(text, text_seq_length=text_seq_length)
-    pil_images, scores = [], []
+    pil_images, ppl_scores = [], []
     for chunk in more_itertools.chunked(range(images_num), bs):
         chunk_bs = len(chunk)
         with torch.no_grad():
             attention_mask = torch.tril(torch.ones((chunk_bs, 1, total_seq_length, total_seq_length), device=device))
             out = input_ids.unsqueeze(0).repeat(chunk_bs, 1).to(device)
             has_cache = False
-            sample_scores = []
             if image_prompts is not None:
                 prompts_idx, prompts = image_prompts.image_prompts_idx, image_prompts.image_prompts
                 prompts = prompts.repeat(chunk_bs, 1)
@@ -53,13 +53,39 @@ def generate_images(text, tokenizer, dalle, vae, top_k, top_p, images_num, image
                     filtered_logits = transformers.top_k_top_p_filtering(logits, top_k=top_k, top_p=top_p)
                     probs = torch.nn.functional.softmax(filtered_logits, dim=-1)
                     sample = torch.multinomial(probs, 1)
-                    sample_scores.append(probs[torch.arange(probs.size(0)), sample.transpose(0, 1)])
                     out = torch.cat((out, sample), dim=-1)
+
             codebooks = out[:, -image_seq_length:]
+            logits, _ = dalle(out, attention_mask, has_cache=has_cache, use_cache=use_cache, return_loss=False)
+            logits = rearrange(logits, 'b n c -> b c n')
+            image_logits = logits[:, vocab_size:, -image_seq_length:- 1].contiguous().float()
+            out = out.contiguous().long()
+            ppl_scores.append(
+                ce_to_ppl(F.cross_entropy(
+                    image_logits,
+                    out[:, -image_seq_length + 1:],
+                    reduction='none',
+                ))
+            )
+
             images = vae.decode(codebooks)
             pil_images += utils.torch_tensors_to_pil_list(images)
-            scores += torch.cat(sample_scores).sum(0).detach().cpu().numpy().tolist()
-    return pil_images, scores
+
+    ppl_scores = torch.cat(ppl_scores)
+    indexes = ppl_scores.argsort()
+
+    sorted_pil_images = []
+    for idx in indexes:
+        sorted_pil_images.append(pil_images[idx.item()])
+
+    return sorted_pil_images, ppl_scores[indexes].cpu().numpy().tolist()
+
+
+def ce_to_ppl(ce):
+    indexes = torch.where(ce)
+    ce[indexes] = torch.exp(ce[indexes])
+    ppl = ce.sum(1) / torch.unique(indexes[0], return_counts=True)[1]
+    return ppl
 
 
 def super_resolution(pil_images, realesrgan, batch_size=4):
@@ -71,20 +97,18 @@ def super_resolution(pil_images, realesrgan, batch_size=4):
     return result
 
 
-def cherry_pick_by_clip(pil_images, text, ruclip, ruclip_processor, device='cpu', count=4):
+def cherry_pick_by_ruclip(pil_images, text, clip_predictor, count=4):
+    """ expected ruclip models """
     with torch.no_grad():
-        inputs = ruclip_processor(text=text, images=pil_images)
-        for key in inputs.keys():
-            inputs[key] = inputs[key].to(device)
-        outputs = ruclip(**inputs)
-        sims = outputs.logits_per_image.view(-1).softmax(dim=0)
-        items = []
-        for index, sim in enumerate(sims.cpu().numpy()):
-            items.append({'img_index': index, 'cosine': sim})
-    items = sorted(items, key=lambda x: x['cosine'], reverse=True)[:count]
-    top_pil_images = [pil_images[x['img_index']] for x in items]
-    top_scores = [x['cosine'] for x in items]
-    return top_pil_images, top_scores
+        text_latents = clip_predictor.get_text_latents([text])
+        image_latents = clip_predictor.get_image_latents(pil_images)
+        logits_per_image = torch.matmul(image_latents, text_latents.t())
+        scores = logits_per_image.view(-1)
+    top_pil_images = []
+    indexes = scores.argsort(descending=True)[:count]
+    for idx in indexes:
+        top_pil_images.append(pil_images[idx])
+    return top_pil_images, scores[indexes].cpu().numpy().tolist()
 
 
 def show(pil_images, nrow=4, size=14, save_dir=None, show=True):
@@ -120,6 +144,7 @@ def show(pil_images, nrow=4, size=14, save_dir=None, show=True):
 
 
 def classic_convert_emoji_to_rgba(np_image, lower_thr=240, upper_thr=255, width=2):
+    import cv2  # noqa
     img = np_image[:, :, :3].copy()
     lower = np.array([lower_thr, lower_thr, lower_thr], dtype='uint8')
     upper = np.array([upper_thr, upper_thr, upper_thr], dtype='uint8')
