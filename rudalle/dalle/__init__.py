@@ -9,7 +9,7 @@ from .fp16 import FP16Module
 
 
 MODELS = {
-    'Malevich_v3': dict(
+    'Malevich': dict(
         hf_version='v3',
         description='◼️ Malevich is 1.3 billion params model from the family GPT3-like, '
                     'that uses Russian language and text+image multi-modality.',
@@ -32,7 +32,7 @@ MODELS = {
         authors='SberAI, SberDevices',
         full_description='',  # TODO
     ),
-    'Malevich': dict(
+    'Malevich_v2': dict(
         hf_version='v2',
         description='◼️ Malevich is 1.3 billion params model from the family GPT3-like, '
                     'that uses Russian language and text+image multi-modality.',
