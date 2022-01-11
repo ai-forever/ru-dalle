@@ -74,7 +74,7 @@ def cherry_pick_by_ruclip(pil_images, text, clip_predictor, count=4):
     """ expected ruclip models """
     with torch.no_grad():
         text_latents = clip_predictor.get_text_latents([text])
-        image_latents = clip_predictor.get_image_features(pil_images)
+        image_latents = clip_predictor.get_image_latents(pil_images)
         logits_per_image = torch.matmul(image_latents, text_latents.t())
         scores = logits_per_image.view(-1)
     top_pil_images = []
