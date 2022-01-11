@@ -9,8 +9,10 @@ import transformers
 import more_itertools
 import numpy as np
 import matplotlib.pyplot as plt
+import torch.nn.functional as F
 from tqdm.auto import tqdm
 from PIL import Image
+from einops import rearrange
 
 from . import utils
 
@@ -29,14 +31,13 @@ def generate_images(text, tokenizer, dalle, vae, top_k, top_p, images_num, image
 
     text = text.lower().strip()
     input_ids = tokenizer.encode_text(text, text_seq_length=text_seq_length)
-    pil_images, scores = [], []
+    pil_images, ppl_scores = [], []
     for chunk in more_itertools.chunked(range(images_num), bs):
         chunk_bs = len(chunk)
         with torch.no_grad():
             attention_mask = torch.tril(torch.ones((chunk_bs, 1, total_seq_length, total_seq_length), device=device))
             out = input_ids.unsqueeze(0).repeat(chunk_bs, 1).to(device)
             has_cache = False
-            sample_scores = []
             if image_prompts is not None:
                 prompts_idx, prompts = image_prompts.image_prompts_idx, image_prompts.image_prompts
                 prompts = prompts.repeat(chunk_bs, 1)
@@ -52,13 +53,39 @@ def generate_images(text, tokenizer, dalle, vae, top_k, top_p, images_num, image
                     filtered_logits = transformers.top_k_top_p_filtering(logits, top_k=top_k, top_p=top_p)
                     probs = torch.nn.functional.softmax(filtered_logits, dim=-1)
                     sample = torch.multinomial(probs, 1)
-                    sample_scores.append(probs[torch.arange(probs.size(0)), sample.transpose(0, 1)])
                     out = torch.cat((out, sample), dim=-1)
+
             codebooks = out[:, -image_seq_length:]
+            logits, _ = dalle(out, attention_mask, has_cache=has_cache, use_cache=use_cache, return_loss=False)
+            logits = rearrange(logits, 'b n c -> b c n')
+            image_logits = logits[:, vocab_size:, -image_seq_length:- 1].contiguous().float()
+            input_ids = out.contiguous().long()
+            ppl_scores.append(
+                ce_to_ppl(F.cross_entropy(
+                    image_logits,
+                    input_ids[:, -image_seq_length + 1:],
+                    reduction='none',
+                ))
+            )
+
             images = vae.decode(codebooks)
             pil_images += utils.torch_tensors_to_pil_list(images)
-            scores += torch.cat(sample_scores).sum(0).detach().cpu().numpy().tolist()
-    return pil_images, scores
+
+    ppl_scores = torch.cat(ppl_scores)
+    indexes = ppl_scores.argsort()
+
+    sorted_pil_images = []
+    for idx in indexes:
+        sorted_pil_images.append(pil_images[idx.item()])
+
+    return sorted_pil_images, ppl_scores[indexes].cpu().numpy().tolist()
+
+
+def ce_to_ppl(ce):
+    indexes = torch.where(ce)
+    ce[indexes] = torch.exp(ce[indexes])
+    ppl = ce.sum(1) / torch.unique(indexes[0], return_counts=True)[1]
+    return ppl
 
 
 def super_resolution(pil_images, realesrgan, batch_size=4):
