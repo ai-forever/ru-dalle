@@ -59,11 +59,11 @@ def generate_images(text, tokenizer, dalle, vae, top_k, top_p, images_num, image
             logits, _ = dalle(out, attention_mask, has_cache=has_cache, use_cache=use_cache, return_loss=False)
             logits = rearrange(logits, 'b n c -> b c n')
             image_logits = logits[:, vocab_size:, -image_seq_length:- 1].contiguous().float()
-            input_ids = out.contiguous().long()
+            out = out.contiguous().long()
             ppl_scores.append(
                 ce_to_ppl(F.cross_entropy(
                     image_logits,
-                    input_ids[:, -image_seq_length + 1:],
+                    out[:, -image_seq_length + 1:],
                     reduction='none',
                 ))
             )
