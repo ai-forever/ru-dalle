@@ -70,20 +70,18 @@ def super_resolution(pil_images, realesrgan, batch_size=4):
     return result
 
 
-def cherry_pick_by_clip(pil_images, text, ruclip, ruclip_processor, device='cpu', count=4):
+def cherry_pick_by_ruclip(pil_images, text, clip_predictor, count=4):
+    """ expected ruclip models """
     with torch.no_grad():
-        inputs = ruclip_processor(text=text, images=pil_images)
-        for key in inputs.keys():
-            inputs[key] = inputs[key].to(device)
-        outputs = ruclip(**inputs)
-        sims = outputs.logits_per_image.view(-1).softmax(dim=0)
-        items = []
-        for index, sim in enumerate(sims.cpu().numpy()):
-            items.append({'img_index': index, 'cosine': sim})
-    items = sorted(items, key=lambda x: x['cosine'], reverse=True)[:count]
-    top_pil_images = [pil_images[x['img_index']] for x in items]
-    top_scores = [x['cosine'] for x in items]
-    return top_pil_images, top_scores
+        text_latents = clip_predictor.get_text_latents([text])
+        image_latents = clip_predictor.get_image_features(pil_images)
+        logits_per_image = torch.matmul(image_latents, text_latents.t())
+        scores = logits_per_image.view(-1)
+    top_pil_images = []
+    indexes = scores.argsort(descending=True)[:count]
+    for idx in indexes:
+        top_pil_images.append(pil_images[idx])
+    return top_pil_images, scores[indexes].cpu().numpy().tolist()
 
 
 def show(pil_images, nrow=4, size=14, save_dir=None, show=True):
