@@ -86,6 +86,12 @@ skyes = [red_sky, sunny_sky, cloudy_sky, night_sky]
 ```
 ![](pics/malevich/russian-temple-image-prompt.png)
 
+### VideoDALL-E
+**Video generation example**
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1A_3Oe9r9DP3Ayd6DPvqKHIKlwNfLhVP5?usp=sharing)
+**Finetuning example**
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1R_joYWlvToA24tsa9BFYa2D6ffiMtyVy?usp=sharing)
+
 
 ### 🚀 Contributors 🚀
 
