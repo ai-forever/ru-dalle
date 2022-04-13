@@ -89,12 +89,21 @@ For making better generative emojis should use more attempts (~512) and select t
 ### Citation
 Feel free to cite our work in your research if it is helpful for you
 ```
-@misc{shonenkov2021emojich,
-      title={Emojich -- zero-shot emoji generation using Russian language: a technical report},
-      author={Alex Shonenkov and Daria Bakshandaeva and Denis Dimitrov and Aleksandr Nikolich},
-      year={2021},
-      eprint={2112.02448},
-      archivePrefix={arXiv},
-      primaryClass={cs.CL}
+@article{DBLP:journals/corr/abs-2112-02448,
+  author    = {Alex Shonenkov and
+               Daria Bakshandaeva and
+               Denis Dimitrov and
+               Aleksandr Nikolich},
+  title     = {Emojich - zero-shot emoji generation using Russian language: a technical
+               report},
+  journal   = {CoRR},
+  volume    = {abs/2112.02448},
+  year      = {2021},
+  url       = {https://arxiv.org/abs/2112.02448},
+  eprinttype = {arXiv},
+  eprint    = {2112.02448},
+  timestamp = {Tue, 07 Dec 2021 12:15:54 +0100},
+  biburl    = {https://dblp.org/rec/journals/corr/abs-2112-02448.bib},
+  bibsource = {dblp computer science bibliography, https://dblp.org}
 }
 ```
