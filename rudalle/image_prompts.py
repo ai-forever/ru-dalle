@@ -27,9 +27,9 @@ class ImagePrompts:
 
     def _get_image_prompts(self, img, borders, vae, crop_first):
         if crop_first:
-            bs, _, img_w, img_h = img.shape
+            bs, _, img_h, img_w = img.shape
             vqg_img_w, vqg_img_h = img_w // 8, img_h // 8
-            vqg_img = torch.zeros((bs, vqg_img_w, vqg_img_h), dtype=torch.int32, device=img.device)
+            vqg_img = torch.zeros((bs, vqg_img_h, vqg_img_w), dtype=torch.int32, device=img.device)
             if borders['down'] != 0:
                 down_border = borders['down'] * 8
                 _, _, [_, _, down_vqg_img] = vae.model.encode(img[:, :, -down_border:, :])
@@ -49,8 +49,8 @@ class ImagePrompts:
         else:
             _, _, [_, _, vqg_img] = vae.model.encode(img)
 
-        bs, vqg_img_w, vqg_img_h = vqg_img.shape
-        mask = torch.zeros(vqg_img_w, vqg_img_h)
+        bs, vqg_img_h, vqg_img_w = vqg_img.shape
+        mask = torch.zeros(vqg_img_h, vqg_img_w)
         if borders['up'] != 0:
             mask[:borders['up'], :] = 1.
         if borders['down'] != 0:

@@ -24,7 +24,11 @@ class DalleModel(torch.nn.Module):
                  loss_img_weight=7,
                  cogview_sandwich_layernorm=False,
                  cogview_pb_relax=False,
-                 mlp_activation='gelu_jit'):
+                 cogview_layernorm_prescale=False,
+                 custom_relax=False,
+                 is_bool_mask=True,
+                 mlp_activation='gelu_jit',
+                 hf_version='v3'):
         super(DalleModel, self).__init__()
         self.device = device
         self.image_tokens_per_dim = image_tokens_per_dim
@@ -34,6 +38,8 @@ class DalleModel(torch.nn.Module):
         self.total_vocab_size = vocab_size + image_vocab_size
         self.vocab_size = vocab_size
         self.loss_img_weight = loss_img_weight
+
+        self.hf_version = hf_version
 
         init_method = init_method_normal(std=0.02)
 
@@ -67,7 +73,11 @@ class DalleModel(torch.nn.Module):
             image_tokens_per_dim=image_tokens_per_dim,
             cogview_sandwich_layernorm=cogview_sandwich_layernorm,
             cogview_pb_relax=cogview_pb_relax,
+            cogview_layernorm_prescale=cogview_layernorm_prescale,
+            custom_relax=custom_relax,
             mlp_activation=mlp_activation,
+            is_bool_mask=is_bool_mask,
+            hf_version=self.hf_version,
         )
 
     def get_param(self, item):
@@ -89,36 +99,42 @@ class DalleModel(torch.nn.Module):
             attention_mask,
             return_loss=False,
             use_cache=False,
-            cache=None
+            cache=None,
+            gradient_checkpointing=None,
     ):
         text = input_ids[:, :self.text_seq_length]
         text_range = torch.arange(self.text_seq_length)
         text_range += (self.vocab_size - self.text_seq_length)
         text_range = text_range.to(self.device)
         text = torch.where(text == 0, text_range, text)
-        # some hardcode :)
-        text = F.pad(text, (1, 0), value=2)
-        text_embeddings = self.text_embeddings(text) + \
-            self.text_pos_embeddings(torch.arange(text.shape[1], device=self.device))
-
+        if self.hf_version == 'v2':
+            # some hardcode :)
+            text = F.pad(text, (1, 0), value=2)
+        text_pos = self.text_pos_embeddings(torch.arange(text.shape[1], device=self.device))
+        text_embeddings = self.text_embeddings(text) + text_pos
         image_input_ids = input_ids[:, self.text_seq_length:]
 
         if exists(image_input_ids) and not is_empty(image_input_ids):
-            image_embeddings = self.image_embeddings(image_input_ids) + \
-                self.get_image_pos_embeddings(image_input_ids, past_length=0)
+            img_pos = self.get_image_pos_embeddings(image_input_ids, past_length=0)
+            image_embeddings = self.image_embeddings(image_input_ids) + img_pos
             embeddings = torch.cat((text_embeddings, image_embeddings), dim=1)
         else:
             embeddings = text_embeddings
-        # some hardcode :)
-        if embeddings.shape[1] > self.total_seq_length:
-            embeddings = embeddings[:, :-1]
+
+        if self.hf_version == 'v2':
+            # some hardcode :)
+            if embeddings.shape[1] > self.total_seq_length:
+                embeddings = embeddings[:, :-1]
 
         alpha = 0.1
         embeddings = embeddings * alpha + embeddings.detach() * (1-alpha)
 
         attention_mask = attention_mask[:, :, :embeddings.shape[1], :embeddings.shape[1]]
+
         transformer_output, present_cache = self.transformer(
-            embeddings, attention_mask, cache=cache, use_cache=use_cache)
+            embeddings, attention_mask,
+            cache=cache, use_cache=use_cache,
+            gradient_checkpointing=gradient_checkpointing)
 
         logits = self.to_logits(transformer_output)
         if return_loss is False:
@@ -128,7 +144,12 @@ class DalleModel(torch.nn.Module):
         logits = rearrange(logits, 'b n c -> b c n')
 
         text_logits = logits[:, :self.vocab_size, :self.text_seq_length].contiguous().float()
-        image_logits = logits[:, self.vocab_size:, self.text_seq_length:].contiguous().float()
+        if self.hf_version == 'v3':
+            image_logits = logits[:, self.vocab_size:, self.text_seq_length:-1].contiguous().float()
+        elif self.hf_version == 'v2':
+            image_logits = logits[:, self.vocab_size:, self.text_seq_length:].contiguous().float()
+        else:
+            raise ValueError(f'Unknown hf_version: {self.hf_version}')
 
         loss_text = F.cross_entropy(
             text_logits,

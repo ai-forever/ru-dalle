@@ -6,7 +6,7 @@ import PIL
 import pytest
 import requests
 
-from rudalle import get_tokenizer, get_rudalle_model, get_vae, get_realesrgan
+from rudalle import get_tokenizer, get_rudalle_model, get_vae, get_realesrgan, get_emojich_unet
 
 
 TEST_ROOT = dirname(abspath(__file__))
@@ -21,6 +21,12 @@ def realesrgan():
 @pytest.fixture(scope='module')
 def vae():
     vae = get_vae(pretrained=False)
+    yield vae
+
+
+@pytest.fixture(scope='module')
+def pretrained_vae():
+    vae = get_vae()
     yield vae
 
 
@@ -46,6 +52,36 @@ def sample_image():
 
 
 @pytest.fixture(scope='module')
+def sample_image_cat():
+    image = PIL.Image.open('pics/ginger_cat.jpeg')
+    yield image
+
+
+@pytest.fixture(scope='module')
 def small_dalle():
-    model = get_rudalle_model('small', pretrained=False, fp16=False, device='cpu')
-    return model
+    model = get_rudalle_model('dummy', pretrained=False, fp16=False, device='cpu')
+    yield model
+
+
+@pytest.fixture(scope='module')
+def xl_dalle():
+    model = get_rudalle_model('Malevich', pretrained=True, fp16=False, device='cpu')
+    yield model
+
+
+@pytest.fixture(scope='module')
+def xxl_dalle():
+    model = get_rudalle_model(
+        'Kandinsky',
+        pretrained=False,
+        fp16=False,
+        device='cpu',
+        cogview_layernorm_prescale=True,
+        custom_relax=True)
+    yield model
+
+
+@pytest.fixture(scope='module')
+def emojich_unet():
+    model = get_emojich_unet('unet_effnetb5')
+    yield model

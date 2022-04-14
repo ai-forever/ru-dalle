@@ -47,7 +47,7 @@ setup(
     author='SberAI, SberDevices',
     author_email='shonenkov@phystech.edu',
     description='ruDALL-E generate images from texts in Russian language',
-    packages=['rudalle', 'rudalle/dalle', 'rudalle/realesrgan', 'rudalle/ruclip', 'rudalle/vae'],
+    packages=['rudalle', 'rudalle/dalle', 'rudalle/realesrgan', 'rudalle/vae', 'rudalle/emojich_unet'],
     package_data={'rudalle/vae': ['*.yml']},
     install_requires=get_requirements(),
     dependency_links=get_links(),
