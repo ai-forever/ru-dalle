@@ -37,7 +37,8 @@ def generate_images(text, tokenizer, dalle, vae, top_k, top_p, images_num, image
         with torch.no_grad():
             attention_mask = torch.tril(torch.ones((chunk_bs, 1, total_seq_length, total_seq_length), device=device))
             out = input_ids.unsqueeze(0).repeat(chunk_bs, 1).to(device)
-            has_cache = False
+
+            cache = None
             if image_prompts is not None:
                 prompts_idx, prompts = image_prompts.image_prompts_idx, image_prompts.image_prompts
                 prompts = prompts.repeat(chunk_bs, 1)
@@ -46,8 +47,8 @@ def generate_images(text, tokenizer, dalle, vae, top_k, top_p, images_num, image
                 if image_prompts is not None and idx in prompts_idx:
                     out = torch.cat((out, prompts[:, idx].unsqueeze(1)), dim=-1)
                 else:
-                    logits, has_cache = dalle(out, attention_mask,
-                                              has_cache=has_cache, use_cache=use_cache, return_loss=False)
+                    logits, cache = dalle(out, attention_mask, use_cache=use_cache,
+                                          cache=cache, return_loss=False)
                     logits = logits[:, -1, vocab_size:]
                     logits /= temperature
                     filtered_logits = transformers.top_k_top_p_filtering(logits, top_k=top_k, top_p=top_p)
@@ -56,7 +57,7 @@ def generate_images(text, tokenizer, dalle, vae, top_k, top_p, images_num, image
                     out = torch.cat((out, sample), dim=-1)
 
             codebooks = out[:, -image_seq_length:]
-            logits, _ = dalle(out, attention_mask, has_cache=has_cache, use_cache=use_cache, return_loss=False)
+            logits, _ = dalle(out, attention_mask, cache=cache, use_cache=use_cache, return_loss=False)
             logits = rearrange(logits, 'b n c -> b c n')
             image_logits = logits[:, vocab_size:, -image_seq_length:- 1].contiguous().float()
             out = out.contiguous().long()
