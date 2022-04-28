@@ -112,7 +112,7 @@ def cherry_pick_by_ruclip(pil_images, text, clip_predictor, count=4):
     return top_pil_images, scores[indexes].cpu().numpy().tolist()
 
 
-def show(pil_images, nrow=4, size=14, save_dir=None, show=True):
+def show(pil_images, nrow=4, size=14, save_dir='/content/drive/MyDrive/LOOKINGGLASS', show=True):
     """
     :param pil_images: list of images in PIL
     :param nrow: number of rows
