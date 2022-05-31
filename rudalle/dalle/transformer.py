@@ -131,10 +131,16 @@ class DalleTransformer(torch.nn.Module):
             layer_mask = self.conv_mask
         return layer_mask
 
-    def forward(self, hidden_states, attention_mask, has_cache, use_cache, gradient_checkpointing=None):
+    def forward(self, hidden_states, attention_mask, cache=None, use_cache=False, gradient_checkpointing=None):
+        if cache is None:
+            cache = {}
+        # Immutable caching uses much more VRAM.
+        # present_cache = {}
+
         if gradient_checkpointing:
             assert not use_cache
             layers = []
+
         for i, layer in enumerate(self.layers):
             mask = attention_mask
             layer_mask = self._get_layer_mask(i)[:mask.size(2), :mask.size(3)]
@@ -146,15 +152,17 @@ class DalleTransformer(torch.nn.Module):
                                     mask,
                                     use_cache=False, has_cache=False))
             else:
-                hidden_states, present_has_cache = layer(
-                    hidden_states, mask, has_cache=has_cache, use_cache=use_cache)
+                hidden_states, layer_cache = layer(
+                    hidden_states, mask, cache.get(i), mlp_cache=i == len(self.layers)-1, use_cache=use_cache)
+                cache[i] = layer_cache
         if gradient_checkpointing:
             hidden_states = torch.utils.checkpoint.checkpoint_sequential(
                 layers, gradient_checkpointing, hidden_states)
-            present_has_cache = False
+
         hidden_states = rescale_max(hidden_states, self.custom_relax)
+
         output = self.final_layernorm(hidden_states)
-        return output, present_has_cache
+        return output, cache
 
 
 class DalleTransformerLayer(torch.nn.Module):
@@ -228,17 +236,19 @@ class DalleTransformerLayer(torch.nn.Module):
             activation=mlp_activation,
             custom_relax=custom_relax)
 
-    def forward(self, hidden_states, ltor_mask, has_cache, use_cache):
+    def forward(self, hidden_states, ltor_mask, cache=None, use_cache=False, mlp_cache=False):
         # hidden_states: [b, s, h]
         # ltor_mask: [1, 1, s, s]
+        # cache: [3/4, b, s, h] (query, key, output)
 
         # Layer norm at the begining of the transformer layer.
         layernorm_input = rescale_max(hidden_states, self.cogview_layernorm_prescale)
         layernorm_output = self.input_layernorm(layernorm_input)
 
         # Self attention.
-        attention_output, att_has_cache = self.attention(
-            layernorm_output, ltor_mask, has_cache=has_cache, use_cache=use_cache)
+        attention_output, new_cache = self.attention(
+            layernorm_output, ltor_mask,
+            cache=cache[:3] if use_cache and cache is not None else cache, use_cache=use_cache)
 
         if self.cogview_sandwich_layernorm:
             attention_output = rescale_max(attention_output, self.cogview_layernorm_prescale)
@@ -247,13 +257,22 @@ class DalleTransformerLayer(torch.nn.Module):
         # Residual connection.
         residual = hidden_states + attention_output
 
+        # Update cache
+        cached = 0 if cache is None else cache[0].shape[-2]
+
         # Layer norm post the self attention.
         layernorm_input = rescale_max(residual, self.cogview_layernorm_prescale)
         layernorm_output = self.post_attention_layernorm(layernorm_input)
 
         # MLP.
-        mlp_output, mlp_has_cache = self.mlp(
-            layernorm_output, has_cache=has_cache, use_cache=use_cache)
+        if use_cache and cached:
+            # MLP caching for the last layer.
+            mlp_output = torch.cat((cache[-1] if mlp_cache else layernorm_output[..., :cached, :],
+                                    self.mlp(layernorm_output[..., cached:, :])), dim=-2)
+            if mlp_cache:
+                new_cache = new_cache + (mlp_output,)
+        else:
+            mlp_output = self.mlp(layernorm_output)
 
         if self.cogview_sandwich_layernorm:
             mlp_output = self.before_second_addition_layernorm(mlp_output)
@@ -261,7 +280,7 @@ class DalleTransformerLayer(torch.nn.Module):
         # Second residual connection.
         output = residual + mlp_output
 
-        return output, att_has_cache and mlp_has_cache
+        return output, new_cache
 
 
 class DalleSelfAttention(torch.nn.Module):
@@ -309,11 +328,6 @@ class DalleSelfAttention(torch.nn.Module):
         self.dense = torch.nn.Linear(hidden_size, hidden_size)
         self.output_dropout = torch.nn.Dropout(output_dropout_prob)
 
-        # Cache
-        self.past_key = None
-        self.past_value = None
-        self.past_output = None
-
     def _transpose_for_scores(self, tensor):
         """ Transpose a 3D tensor [b, s, np*hn] into a 4D tensor with size [b, np, s, hn]. """
         new_tensor_shape = tensor.size()[:-1] + (self.num_attention_heads, self.hidden_size_per_attention_head)
@@ -357,12 +371,13 @@ class DalleSelfAttention(torch.nn.Module):
             attention_scores = (attention_scores_scaled - attention_scores_scaled_maxes) * alpha
         return attention_scores
 
-    def forward(self, hidden_states, ltor_mask, has_cache=False, use_cache=False, ):
+    def forward(self, hidden_states, ltor_mask, use_cache=False, cache=None,):
         # hidden_states: [b, s, h]
         # ltor_mask: [1, 1, s, s]
+        # cache: [3, b, s, h]  (key, value, output)
         # Attention heads. [b, s, hp]
-        if has_cache and use_cache:
-            mixed_x_layer = self.query_key_value(hidden_states[:, self.past_key.shape[-2]:, :])
+        if use_cache and cache is not None:
+            mixed_x_layer = self.query_key_value(hidden_states[:, cache[0].shape[-2]:, :])
         else:
             mixed_x_layer = self.query_key_value(hidden_states)
 
@@ -375,9 +390,10 @@ class DalleSelfAttention(torch.nn.Module):
         value_layer = self._transpose_for_scores(mixed_value_layer)
 
         # Can be simplified, but I didn't for readability's sake
-        if use_cache and has_cache:
-            key_layer = torch.cat((self.past_key, key_layer), dim=-2)
-            value_layer = torch.cat((self.past_value, value_layer), dim=-2)
+        if use_cache and cache is not None:
+            past_key, past_value, past_output = cache
+            key_layer = torch.cat((past_key, key_layer), dim=-2)
+            value_layer = torch.cat((past_value, value_layer), dim=-2)
             attention_scores = self._calculate_attention_scores(
                 query_layer=query_layer, key_layer=key_layer, ltor_mask=ltor_mask
             )
@@ -385,19 +401,6 @@ class DalleSelfAttention(torch.nn.Module):
             attention_scores = self._calculate_attention_scores(
                 query_layer=query_layer, key_layer=key_layer, ltor_mask=ltor_mask
             )
-
-        if use_cache and has_cache:
-            extra_cache_size = hidden_states.shape[-2] - self.past_key.shape[-2]
-            attention_scores = attention_scores[..., -extra_cache_size:, :]
-
-        if use_cache:
-            self.past_key = key_layer
-            self.past_value = value_layer
-        else:
-            self.past_key = None
-            self.past_value = None
-            self.past_output = None
-            has_cache = False
 
         # Attention probabilities. [b, np, s, s]
         attention_probs = torch.nn.Softmax(dim=-1)(attention_scores)
@@ -426,17 +429,17 @@ class DalleSelfAttention(torch.nn.Module):
 
         # Output. [b, s, h]
         output = self.dense(context_layer)
+
+        if use_cache and cache is not None:
+            output = torch.cat((past_output, output), dim=-2)
+
         if use_cache:
-            # Can be simplified, but I didn't for readability's sake
-            if has_cache:
-                output = torch.cat((self.past_output, output), dim=-2)
-                self.past_output = output
-            else:
-                self.past_output = output
-            has_cache = True
+            cache = key_layer, value_layer, output
+        # another option:
+        # cache = torch.cat((key_layer, value_layer, output), dim=0)
 
         output = self.output_dropout(output)
-        return output, has_cache
+        return output, cache
 
 
 class DalleMLP(torch.nn.Module):
@@ -459,14 +462,12 @@ class DalleMLP(torch.nn.Module):
         # Project back to h.
         self.dense_4h_to_h = torch.nn.Linear(4 * hidden_size, hidden_size)
         self.dropout = torch.nn.Dropout(output_dropout_prob)
-        # MLP cache
-        self.past_x = None
         # Additional stabilization tweak for large models
         self.custom_relax = custom_relax
 
-    def forward(self, hidden_states, has_cache=False, use_cache=False):
-        if has_cache and use_cache:
-            hidden_states = hidden_states[:, self.past_x.shape[-2]:]
+
+
+    def forward(self, hidden_states):
         # [b, s, 4hp]
         x = self.dense_h_to_4h(hidden_states)
         if self.activation == 'gelu_jit':
@@ -475,6 +476,7 @@ class DalleMLP(torch.nn.Module):
             x = gelu(x)
         else:
             raise NotImplementedError('Used MLP activation is not implemented.')
+
         if self.custom_relax:
             scale = x.detach().max().item() / 4
             x = self.dense_4h_to_h(x / scale)
@@ -482,18 +484,6 @@ class DalleMLP(torch.nn.Module):
         else:
             # [b, s, h]
             x = self.dense_4h_to_h(x)
-        if use_cache:
-            # Can be simplified, but I didn't for readability's sake
-            if has_cache:
-                x = torch.cat((self.past_x, x), dim=-2)
-                self.past_x = x
-            else:
-                self.past_x = x
 
-            has_cache = True
-        else:
-            self.past_x = None
-            has_cache = False
         output = self.dropout(x)
-
-        return output, has_cache
+        return output

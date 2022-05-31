@@ -8,11 +8,12 @@
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/sberbank-ai/ru-dalle/master.svg)](https://results.pre-commit.ci/latest/github/sberbank-ai/ru-dalle/master)
 
 ```
-pip install rudalle==1.0.0
+pip install rudalle==1.1.0rc0
 ```
 ### 🤗 HF Models:
 [ruDALL-E Malevich (XL)](https://huggingface.co/sberbank-ai/rudalle-Malevich) \
-[ruDALL-E Emojich (XL)](https://huggingface.co/sberbank-ai/rudalle-Emojich) (readme [here](https://github.com/sberbank-ai/ru-dalle/blob/master/Emojich.md))
+[ruDALL-E Emojich (XL)](https://huggingface.co/sberbank-ai/rudalle-Emojich) (readme [here](https://github.com/sberbank-ai/ru-dalle/blob/master/Emojich.md)) \
+[ruDALL-E Surrealist (XL)](https://huggingface.co/shonenkov-AI/rudalle-xl-surrealist)
 
 
 ### Minimal Example:
@@ -86,11 +87,18 @@ skyes = [red_sky, sunny_sky, cloudy_sky, night_sky]
 ```
 ![](pics/malevich/russian-temple-image-prompt.png)
 
+
 ### VideoDALL-E
 **Video generation example**
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1A_3Oe9r9DP3Ayd6DPvqKHIKlwNfLhVP5?usp=sharing)
 **Finetuning example**
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1R_joYWlvToA24tsa9BFYa2D6ffiMtyVy?usp=sharing)
+
+
+### Aspect ratio images [**-->NEW<--**](https://github.com/shonenkov-AI/rudalle-aspect-ratio)
+
+![](https://raw.githubusercontent.com/shonenkov-AI/rudalle-aspect-ratio/main/pics/h_example.jpg)
+
 
 
 ### 🚀 Contributors 🚀
@@ -104,16 +112,10 @@ skyes = [red_sky, sunny_sky, cloudy_sky, night_sky]
 
 ### Supported by
 
-[<img src="https://raw.githubusercontent.com/sberbank-ai/ru-dolph/master/pics/logo/sberai-logo.png" height="115"/>](https://github.com/sberbank-ai) \
-[<img src="https://raw.githubusercontent.com/sberbank-ai/ru-dolph/master/pics/logo/sberdevices-logo.png" height="40"/>](https://sberdevices.ru)
-
-[<img src="https://raw.githubusercontent.com/sberbank-ai/ru-dolph/master/pics/logo/sbercloud-logo.png" height="80"/>](https://sbercloud.ru/) \
 [<img src="https://raw.githubusercontent.com/sberbank-ai/ru-dolph/master/pics/logo/airi-logo.png" height="50"/>](https://airi.net)
-
 
 
 ### Social Media
 
 [![](./pics/habr_eng.svg)](https://habr.com/ru/company/sberbank/blog/589673/)
 [![](./pics/habr.svg)](https://habr.com/ru/company/sberdevices/blog/586926/)
-[![](https://img.shields.io/badge/Instagram-E4405F?style=for-the-badge&logo=instagram&logoColor=white)](https://instagram.com/rudalle.official)

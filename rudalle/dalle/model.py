@@ -98,8 +98,8 @@ class DalleModel(torch.nn.Module):
             input_ids,
             attention_mask,
             return_loss=False,
-            has_cache=False,
             use_cache=False,
+            cache=None,
             gradient_checkpointing=None,
     ):
         text = input_ids[:, :self.text_seq_length]
@@ -130,14 +130,15 @@ class DalleModel(torch.nn.Module):
         embeddings = embeddings * alpha + embeddings.detach() * (1-alpha)
 
         attention_mask = attention_mask[:, :, :embeddings.shape[1], :embeddings.shape[1]]
-        transformer_output, present_has_cache = self.transformer(
+
+        transformer_output, present_cache = self.transformer(
             embeddings, attention_mask,
-            has_cache=has_cache, use_cache=use_cache,
+            cache=cache, use_cache=use_cache,
             gradient_checkpointing=gradient_checkpointing)
 
         logits = self.to_logits(transformer_output)
         if return_loss is False:
-            return logits, present_has_cache
+            return logits, present_cache
 
         labels = torch.cat((text[:, 1:], image_input_ids), dim=1).contiguous().long()
         logits = rearrange(logits, 'b n c -> b c n')
