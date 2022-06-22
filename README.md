@@ -8,13 +8,13 @@
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/sberbank-ai/ru-dalle/master.svg)](https://results.pre-commit.ci/latest/github/sberbank-ai/ru-dalle/master)
 
 ```
-pip install rudalle==1.1.0rc0
+pip install rudalle==1.1.0
 ```
 ### 🤗 HF Models:
 [ruDALL-E Malevich (XL)](https://huggingface.co/sberbank-ai/rudalle-Malevich) \
 [ruDALL-E Emojich (XL)](https://huggingface.co/sberbank-ai/rudalle-Emojich) (readme [here](https://github.com/sberbank-ai/ru-dalle/blob/master/Emojich.md)) \
-[ruDALL-E Surrealist (XL)](https://huggingface.co/shonenkov-AI/rudalle-xl-surrealist)
-
+[ruDALL-E Surrealist (XL)](https://huggingface.co/shonenkov-AI/rudalle-xl-surrealist) \
+ruDALL-E Kandinsky (XXL) (soon)
 
 ### Minimal Example:
 
@@ -100,6 +100,15 @@ skyes = [red_sky, sunny_sky, cloudy_sky, night_sky]
 ![](https://raw.githubusercontent.com/shonenkov-AI/rudalle-aspect-ratio/main/pics/h_example.jpg)
 
 
+### [Kandinsky]()
+
+`роботы акварелью в стиле ван гога`
+![](./pics/kandinsky/example-robots.png)
+
+[![](./pics/habr_eng.svg)](https://habr.com/ru/company/sberbank/blog/671210/)
+
+![](./pics/kandinsky/loss.jpg)
+`FID = 15.4 (COCO Valid)`
 
 ### 🚀 Contributors 🚀
 

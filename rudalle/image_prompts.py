@@ -5,7 +5,7 @@ import numpy as np
 
 class ImagePrompts:
 
-    def __init__(self, pil_image, borders, vae, device='cpu', crop_first=False):
+    def __init__(self, pil_image, borders, vae, device='cpu', crop_first=False, disable_gumbel_softmax=True):
         """
         Args:
             pil_image (PIL.Image): image in PIL format
@@ -17,7 +17,8 @@ class ImagePrompts:
         """
         self.device = device
         img = self._preprocess_img(pil_image)
-        self.image_prompts_idx, self.image_prompts = self._get_image_prompts(img, borders, vae, crop_first)
+        self.image_prompts_idx, self.image_prompts = self._get_image_prompts(
+            img, borders, vae, crop_first, disable_gumbel_softmax)
 
     def _preprocess_img(self, pil_img):
         img = torch.tensor(np.array(pil_img.convert('RGB')).transpose(2, 0, 1)) / 255.
@@ -25,29 +26,33 @@ class ImagePrompts:
         img = (2 * img) - 1
         return img
 
-    def _get_image_prompts(self, img, borders, vae, crop_first):
+    def _get_image_prompts(self, img, borders, vae, crop_first, disable_gumbel_softmax):
         if crop_first:
             bs, _, img_h, img_w = img.shape
             vqg_img_w, vqg_img_h = img_w // 8, img_h // 8
             vqg_img = torch.zeros((bs, vqg_img_h, vqg_img_w), dtype=torch.int32, device=img.device)
             if borders['down'] != 0:
                 down_border = borders['down'] * 8
-                _, _, [_, _, down_vqg_img] = vae.model.encode(img[:, :, -down_border:, :])
+                _, _, [_, _, down_vqg_img] = vae.model.encode(
+                    img[:, :, -down_border:, :], disable_gumbel_softmax=disable_gumbel_softmax)
                 vqg_img[:, -borders['down']:, :] = down_vqg_img
             if borders['right'] != 0:
                 right_border = borders['right'] * 8
-                _, _, [_, _, right_vqg_img] = vae.model.encode(img[:, :, :, -right_border:])
+                _, _, [_, _, right_vqg_img] = vae.model.encode(
+                    img[:, :, :, -right_border:], disable_gumbel_softmax=disable_gumbel_softmax)
                 vqg_img[:, :, -borders['right']:] = right_vqg_img
             if borders['left'] != 0:
                 left_border = borders['left'] * 8
-                _, _, [_, _, left_vqg_img] = vae.model.encode(img[:, :, :, :left_border])
+                _, _, [_, _, left_vqg_img] = vae.model.encode(
+                    img[:, :, :, :left_border], disable_gumbel_softmax=disable_gumbel_softmax)
                 vqg_img[:, :, :borders['left']] = left_vqg_img
             if borders['up'] != 0:
                 up_border = borders['up'] * 8
-                _, _, [_, _, up_vqg_img] = vae.model.encode(img[:, :, :up_border, :])
+                _, _, [_, _, up_vqg_img] = vae.model.encode(
+                    img[:, :, :up_border, :], disable_gumbel_softmax=disable_gumbel_softmax)
                 vqg_img[:, :borders['up'], :] = up_vqg_img
         else:
-            _, _, [_, _, vqg_img] = vae.model.encode(img)
+            _, _, [_, _, vqg_img] = vae.model.encode(img, disable_gumbel_softmax=disable_gumbel_softmax)
 
         bs, vqg_img_h, vqg_img_w = vqg_img.shape
         mask = torch.zeros(vqg_img_h, vqg_img_w)
