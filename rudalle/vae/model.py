@@ -28,9 +28,9 @@ class VQGanGumbelVAE(torch.nn.Module):
         self.num_tokens = config.model.params.n_embed
 
     @torch.no_grad()
-    def get_codebook_indices(self, img):
+    def get_codebook_indices(self, img, disable_gumbel_softmax=False):
         img = (2 * img) - 1
-        _, _, [_, _, indices] = self.model.encode(img)
+        _, _, [_, _, indices] = self.model.encode(img, disable_gumbel_softmax=disable_gumbel_softmax)
         return rearrange(indices, 'b h w -> b (h w)')
 
     def decode(self, img_seq):
@@ -63,16 +63,20 @@ class GumbelQuantize(nn.Module):
         self.embed = nn.Embedding(self.n_embed, self.embedding_dim)
         self.use_vqinterface = use_vqinterface
 
-    def forward(self, z, temp=None, return_logits=False):
+    def forward(self, z, temp=None, return_logits=False, disable_gumbel_softmax=False):
         hard = self.straight_through if self.training else True
         temp = self.temperature if temp is None else temp
         logits = self.proj(z)
-        soft_one_hot = F.gumbel_softmax(logits, tau=temp, dim=1, hard=hard)
-        z_q = einsum('b n h w, n d -> b d h w', soft_one_hot, self.embed.weight)
-        # + kl divergence to the prior loss
-        qy = F.softmax(logits, dim=1)
-        diff = self.kl_weight * torch.sum(qy * torch.log(qy * self.n_embed + 1e-10), dim=1).mean()
-        ind = soft_one_hot.argmax(dim=1)
+        if disable_gumbel_softmax:
+            z_q, diff = None, None
+            ind = logits.argmax(dim=1)
+        else:
+            soft_one_hot = F.gumbel_softmax(logits, tau=temp, dim=1, hard=hard)
+            z_q = einsum('b n h w, n d -> b d h w', soft_one_hot, self.embed.weight)
+            # + kl divergence to the prior loss
+            qy = F.softmax(logits, dim=1)
+            diff = self.kl_weight * torch.sum(qy * torch.log(qy * self.n_embed + 1e-10), dim=1).mean()
+            ind = soft_one_hot.argmax(dim=1)
         if self.use_vqinterface:
             if return_logits:
                 return z_q, diff, (None, None, ind), logits
@@ -92,10 +96,10 @@ class GumbelVQ(nn.Module):
         self.quant_conv = torch.nn.Conv2d(ddconfig['z_channels'], embed_dim, 1)
         self.post_quant_conv = torch.nn.Conv2d(embed_dim, ddconfig['z_channels'], 1)
 
-    def encode(self, x):
+    def encode(self, x, disable_gumbel_softmax=False):
         h = self.encoder(x)
         h = self.quant_conv(h)
-        quant, emb_loss, info = self.quantize(h)
+        quant, emb_loss, info = self.quantize(h, disable_gumbel_softmax)
         return quant, emb_loss, info
 
     def decode(self, quant):

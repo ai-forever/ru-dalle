@@ -26,5 +26,6 @@ def get_vae(pretrained=True, dwt=False, cache_dir='/tmp/rudalle'):
             vae.load_state_dict(checkpoint['state_dict'])
         else:
             vae.model.load_state_dict(checkpoint['state_dict'], strict=False)
+    vae.eval()
     print('vae --> ready')
     return vae

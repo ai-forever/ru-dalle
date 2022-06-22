@@ -57,9 +57,9 @@ def generate_images(text, tokenizer, dalle, vae, top_k, top_p, images_num, image
                     out = torch.cat((out, sample), dim=-1)
 
             codebooks = out[:, -image_seq_length:]
-            logits, _ = dalle(out, attention_mask, cache=cache, use_cache=use_cache, return_loss=False)
+            logits, _ = dalle(out, attention_mask, cache=None, use_cache=False, return_loss=False)
             logits = rearrange(logits, 'b n c -> b c n')
-            image_logits = logits[:, vocab_size:, -image_seq_length:- 1].contiguous().float()
+            image_logits = logits[:, vocab_size:, -image_seq_length:-1].contiguous().float()
             out = out.contiguous().long()
             ppl_scores.append(
                 ce_to_ppl(F.cross_entropy(
