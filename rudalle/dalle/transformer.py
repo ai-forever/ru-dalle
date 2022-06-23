@@ -381,6 +381,7 @@ class DalleSelfAttention(torch.nn.Module):
 
         # Output. [b, s, h]
         output = self.dense(context_layer)
+        output = torch.clamp(output, min=-65504, max=65504)
 
         if use_cache and cache is not None:
             output = torch.cat((past_output, output), dim=-2)

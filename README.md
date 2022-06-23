@@ -8,7 +8,7 @@
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/sberbank-ai/ru-dalle/master.svg)](https://results.pre-commit.ci/latest/github/sberbank-ai/ru-dalle/master)
 
 ```
-pip install rudalle==1.1.0
+pip install rudalle==1.1.1
 ```
 ### 🤗 HF Models:
 [ruDALL-E Malevich (XL)](https://huggingface.co/sberbank-ai/rudalle-Malevich) \
@@ -100,7 +100,7 @@ skyes = [red_sky, sunny_sky, cloudy_sky, night_sky]
 ![](https://raw.githubusercontent.com/shonenkov-AI/rudalle-aspect-ratio/main/pics/h_example.jpg)
 
 
-### [Kandinsky](https://github.com/ai-forever/ru-dalle/blob/master/jupyters/Kandinsky-12b.ipynb)
+### [Kandinsky](https://github.com/ai-forever/ru-dalle/blob/master/jupyters/Kandinsky-12b-A100.ipynb)
 
 `роботы акварелью в стиле ван гога`
 ![](./pics/kandinsky/example-robots.png)
