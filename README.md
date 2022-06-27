@@ -100,7 +100,9 @@ skyes = [red_sky, sunny_sky, cloudy_sky, night_sky]
 ![](https://raw.githubusercontent.com/shonenkov-AI/rudalle-aspect-ratio/main/pics/h_example.jpg)
 
 
-### [Kandinsky](https://github.com/ai-forever/ru-dalle/blob/master/jupyters/Kandinsky-12b-A100.ipynb)
+### [Kandinsky 12B](https://github.com/ai-forever/ru-dalle/blob/master/jupyters/Kandinsky-12b-A100.ipynb)
+
+Request access: [Here](https://docs.google.com/forms/d/e/1FAIpQLSdYCT6LKDWgWGkd0Lq_sMLe2wZDZSkMUuCQx4qdXUnd6SrhvA/viewform)
 
 `роботы акварелью в стиле ван гога`
 ![](./pics/kandinsky/example-robots.png)
