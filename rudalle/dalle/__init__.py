@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import os
+import gc
 
+from tqdm.auto import tqdm
 import torch
 from huggingface_hub import hf_hub_url, cached_download
 
@@ -157,14 +159,55 @@ def get_rudalle_model(name, pretrained=True, fp16=False, device='cpu', use_auth_
 
     config = MODELS[name].copy()
     config['model_params'].update(model_kwargs)
-    model = DalleModel(device=device, hf_version=config['hf_version'], **config['model_params'])
+
     if pretrained:
+        def init_layer_func(x, prefix=None):
+            if prefix:
+                used_names = []
+                tmp_checkpoint = {}
+                for name in checkpoint.keys():
+                    if name.startswith(prefix):
+                        tmp_checkpoint[name[len(prefix):]] = checkpoint[name]
+                        used_names.append(name)
+                x.load_state_dict(tmp_checkpoint)
+                for used_name in used_names:
+                    weights = checkpoint.pop(used_name)
+                    weights.to('cpu')
+                    del weights
+                pbar.update(len(used_names))
+                gc.collect()
+
+            if fp16:
+                x = x.half()
+            x = x.to(device)
+            return x
+
+        global checkpoint
+        global pbar
+
         cache_dir = os.path.join(cache_dir, name)
         config_file_url = hf_hub_url(repo_id=config['repo_id'], filename=config['filename'])
         cached_download(config_file_url, cache_dir=cache_dir, force_filename=config['filename'],
                         use_auth_token=use_auth_token)
-        checkpoint = torch.load(os.path.join(cache_dir, config['filename']), map_location='cpu')
-        model.load_state_dict(checkpoint)
+        checkpoint = torch.load(os.path.join(cache_dir, config['filename']), map_location=device)
+
+        pbar = tqdm(total=len(checkpoint.keys()))
+        pbar.set_description('Init model layer by layer')
+    else:
+        def init_layer_func(x, prefix=None):
+            if fp16:
+                x = x.half()
+            x = x.to(device)
+            return x
+
+    model = DalleModel(device=device, init_layer_func=init_layer_func, hf_version=config['hf_version'],
+                       **config['model_params'])
+
+    if pretrained:
+        pbar.update(len(checkpoint.keys()))
+        del checkpoint
+        gc.collect()
+
     if fp16:
         model = FP16Module(model)
     model.eval()
