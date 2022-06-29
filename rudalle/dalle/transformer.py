@@ -72,6 +72,7 @@ class DalleTransformer(torch.nn.Module):
                  output_dropout_prob,
                  text_seq_length,
                  image_tokens_per_dim,
+                 init_layer_func=None,
                  layernorm_epsilon=1.0e-5,
                  cogview_sandwich_layernorm=False,
                  cogview_pb_relax=False,
@@ -79,7 +80,8 @@ class DalleTransformer(torch.nn.Module):
                  is_bool_mask=False,
                  hf_version='v3'):
         super(DalleTransformer, self).__init__()
-
+        if init_layer_func is None:
+            def init_layer_func(x, prefix=None): return x
         self.num_layers = num_layers
         # CogView stabilization of training features, see chapter 2.4 https://arxiv.org/pdf/2105.13290.pdf
         self.cogview_pb_relax = cogview_pb_relax
@@ -87,7 +89,7 @@ class DalleTransformer(torch.nn.Module):
         self.hf_version = hf_version
         # Transformer layers.
         self.layers = torch.nn.ModuleList([
-            DalleTransformerLayer(
+            init_layer_func(DalleTransformerLayer(
                 hidden_size,
                 num_attention_heads,
                 attention_dropout_prob,
@@ -96,7 +98,7 @@ class DalleTransformer(torch.nn.Module):
                 cogview_sandwich_layernorm=cogview_sandwich_layernorm,
                 cogview_pb_relax=cogview_pb_relax,
                 mlp_activation=mlp_activation,
-            ) for _ in range(num_layers)
+            ), prefix=f'transformer.layers.{i}.') for i in range(num_layers)
         ])
 
         row_mask = get_row_mask(text_seq_length, image_tokens_per_dim, is_bool_mask=is_bool_mask)
@@ -107,8 +109,13 @@ class DalleTransformer(torch.nn.Module):
         self.register_buffer('col_mask', col_mask)
         self.register_buffer('conv_mask', conv_mask)
 
+        init_layer_func(self.row_mask)
+        init_layer_func(self.col_mask)
+        init_layer_func(self.conv_mask)
+
         # Final layer norm before output.
-        self.final_layernorm = LayerNorm(hidden_size, eps=layernorm_epsilon)
+        self.final_layernorm = init_layer_func(LayerNorm(hidden_size, eps=layernorm_epsilon),
+                                               prefix='transformer.final_layernorm.')
 
     def _get_layer_mask(self, layer_id):
         if ((layer_id - 1) % 4 == 0):
