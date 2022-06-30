@@ -99,7 +99,7 @@ class GumbelVQ(nn.Module):
     def encode(self, x, disable_gumbel_softmax=False):
         h = self.encoder(x)
         h = self.quant_conv(h)
-        quant, emb_loss, info = self.quantize(h, disable_gumbel_softmax)
+        quant, emb_loss, info = self.quantize(h, disable_gumbel_softmax=disable_gumbel_softmax)
         return quant, emb_loss, info
 
     def decode(self, quant):
