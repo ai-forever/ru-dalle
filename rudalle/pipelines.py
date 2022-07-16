@@ -9,7 +9,10 @@ import transformers
 import more_itertools
 import numpy as np
 import matplotlib.pyplot as plt
+import torch.nn.functional as F
 from tqdm.auto import tqdm
+from PIL import Image
+from einops import rearrange
 
 from . import utils
 
@@ -28,14 +31,14 @@ def generate_images(text, tokenizer, dalle, vae, top_k, top_p, images_num, image
 
     text = text.lower().strip()
     input_ids = tokenizer.encode_text(text, text_seq_length=text_seq_length)
-    pil_images, scores = [], []
+    pil_images, ppl_scores = [], []
     for chunk in more_itertools.chunked(range(images_num), bs):
         chunk_bs = len(chunk)
         with torch.no_grad():
             attention_mask = torch.tril(torch.ones((chunk_bs, 1, total_seq_length, total_seq_length), device=device))
             out = input_ids.unsqueeze(0).repeat(chunk_bs, 1).to(device)
-            has_cache = False
-            sample_scores = []
+
+            cache = None
             if image_prompts is not None:
                 prompts_idx, prompts = image_prompts.image_prompts_idx, image_prompts.image_prompts
                 prompts = prompts.repeat(chunk_bs, 1)
@@ -44,45 +47,69 @@ def generate_images(text, tokenizer, dalle, vae, top_k, top_p, images_num, image
                 if image_prompts is not None and idx in prompts_idx:
                     out = torch.cat((out, prompts[:, idx].unsqueeze(1)), dim=-1)
                 else:
-                    logits, has_cache = dalle(out, attention_mask,
-                                              has_cache=has_cache, use_cache=use_cache, return_loss=False)
+                    logits, cache = dalle(out, attention_mask, use_cache=use_cache,
+                                          cache=cache, return_loss=False)
                     logits = logits[:, -1, vocab_size:]
                     logits /= temperature
                     filtered_logits = transformers.top_k_top_p_filtering(logits, top_k=top_k, top_p=top_p)
                     probs = torch.nn.functional.softmax(filtered_logits, dim=-1)
                     sample = torch.multinomial(probs, 1)
-                    sample_scores.append(probs[torch.arange(probs.size(0)), sample.transpose(0, 1)])
                     out = torch.cat((out, sample), dim=-1)
+
             codebooks = out[:, -image_seq_length:]
+            logits, _ = dalle(out, attention_mask, cache=None, use_cache=False, return_loss=False)
+            logits = rearrange(logits, 'b n c -> b c n')
+            image_logits = logits[:, vocab_size:, -image_seq_length:-1].contiguous().float()
+            out = out.contiguous().long()
+            ppl_scores.append(
+                ce_to_ppl(F.cross_entropy(
+                    image_logits,
+                    out[:, -image_seq_length + 1:],
+                    reduction='none',
+                ))
+            )
+
             images = vae.decode(codebooks)
             pil_images += utils.torch_tensors_to_pil_list(images)
-            scores += torch.cat(sample_scores).sum(0).detach().cpu().numpy().tolist()
-    return pil_images, scores
+
+    ppl_scores = torch.cat(ppl_scores)
+    indexes = ppl_scores.argsort()
+
+    sorted_pil_images = []
+    for idx in indexes:
+        sorted_pil_images.append(pil_images[idx.item()])
+
+    return sorted_pil_images, ppl_scores[indexes].cpu().numpy().tolist()
 
 
-def super_resolution(pil_images, realesrgan):
+def ce_to_ppl(ce):
+    indexes = torch.where(ce)
+    ce[indexes] = torch.exp(ce[indexes])
+    ppl = ce.sum(1) / torch.unique(indexes[0], return_counts=True)[1]
+    return ppl
+
+
+def super_resolution(pil_images, realesrgan, batch_size=4):
     result = []
     for pil_image in pil_images:
         with torch.no_grad():
-            sr_image = realesrgan.predict(np.array(pil_image))
+            sr_image = realesrgan.predict(np.array(pil_image), batch_size=batch_size)
         result.append(sr_image)
     return result
 
 
-def cherry_pick_by_clip(pil_images, text, ruclip, ruclip_processor, device='cpu', count=4):
+def cherry_pick_by_ruclip(pil_images, text, clip_predictor, count=4):
+    """ expected ruclip models """
     with torch.no_grad():
-        inputs = ruclip_processor(text=text, images=pil_images)
-        for key in inputs.keys():
-            inputs[key] = inputs[key].to(device)
-        outputs = ruclip(**inputs)
-        sims = outputs.logits_per_image.view(-1).softmax(dim=0)
-        items = []
-        for index, sim in enumerate(sims.cpu().numpy()):
-            items.append({'img_index': index, 'cosine': sim})
-    items = sorted(items, key=lambda x: x['cosine'], reverse=True)[:count]
-    top_pil_images = [pil_images[x['img_index']] for x in items]
-    top_scores = [x['cosine'] for x in items]
-    return top_pil_images, top_scores
+        text_latents = clip_predictor.get_text_latents([text])
+        image_latents = clip_predictor.get_image_latents(pil_images)
+        logits_per_image = torch.matmul(image_latents, text_latents.t())
+        scores = logits_per_image.view(-1)
+    top_pil_images = []
+    indexes = scores.argsort(descending=True)[:count]
+    for idx in indexes:
+        top_pil_images.append(pil_images[idx])
+    return top_pil_images, scores[indexes].cpu().numpy().tolist()
 
 
 def show(pil_images, nrow=4, size=14, save_dir=None, show=True):
@@ -98,6 +125,7 @@ def show(pil_images, nrow=4, size=14, save_dir=None, show=True):
         for i, pil_image in enumerate(pil_images):
             pil_image.save(join(save_dir, f'img_{count+i}.png'))
 
+    pil_images = [pil_image.convert('RGB') for pil_image in pil_images]
     imgs = torchvision.utils.make_grid(utils.pil_list_to_torch_tensors(pil_images), nrow=nrow)
     if not isinstance(imgs, list):
         imgs = [imgs.cpu()]
@@ -114,3 +142,66 @@ def show(pil_images, nrow=4, size=14, save_dir=None, show=True):
     if show:
         fix.show()
         plt.show()
+
+
+def classic_convert_emoji_to_rgba(np_image, lower_thr=240, upper_thr=255, width=2):
+    import cv2  # noqa
+    img = np_image[:, :, :3].copy()
+    lower = np.array([lower_thr, lower_thr, lower_thr], dtype='uint8')
+    upper = np.array([upper_thr, upper_thr, upper_thr], dtype='uint8')
+    mask = cv2.inRange(img, lower, upper)
+    ret, thresh = cv2.threshold(mask, 0, 255, 0)
+    contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+    a_channel = np.ones((512, 512), dtype=np.uint8)*255
+    if len(contours) != 0:
+        contours = sorted(contours, key=lambda x: x.shape[0])[-7:]
+        cv2.fillPoly(a_channel, contours, (0, 0, 0))
+        cv2.drawContours(a_channel, contours, -1, (0, 0, 0), width)
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2RGBA)
+    img[:, :, 3] = a_channel
+    return img
+
+
+def convert_emoji_to_rgba(pil_images, emojich_unet,  device='cpu', bs=1, score_thr=0.99):
+    final_images, runs = [], []
+    with torch.no_grad():
+        for chunk in more_itertools.chunked(pil_images, bs):
+            images = []
+            for pil_image in chunk:
+                image = np.array(pil_image.resize((512, 512)))[:, :, :3]
+                image = image.astype(np.float32) / 255.0
+                image = torch.from_numpy(image).permute(2, 0, 1)
+                images.append(image)
+            images = torch.nn.utils.rnn.pad_sequence(images, batch_first=True)
+            pred_masks = emojich_unet(images.to(device))
+            pred_masks = torch.softmax(pred_masks, 1)
+            scores, pred_masks = torch.max(pred_masks, 1)
+            pred_masks = pred_masks.int().cpu().numpy()
+            pred_masks = (pred_masks * 255).astype(np.uint8)
+            for pil_image, pred_mask, score in zip(chunk, pred_masks, scores):
+                score = score.mean().item()
+                final_image = np.zeros((512, 512, 4), np.uint8)
+                final_image[:, :, :3] = np.array(pil_image.resize((512, 512)))[:, :, :3]
+                if score > score_thr:
+                    run = 'unet'
+                    final_image[:, :, -1] = pred_mask
+                else:
+                    run = 'classic'
+                    final_image = classic_convert_emoji_to_rgba(final_image)
+                final_image = Image.fromarray(final_image)
+                final_images.append(final_image)
+                runs.append(run)
+    return final_images, runs
+
+
+def show_rgba(rgba_pil_image):
+    img = np.array(rgba_pil_image)
+    fig, ax = plt.subplots(1, 3, figsize=(10, 10), dpi=100)
+    ax[0].imshow(img[:, :, :3])
+    ax[1].imshow(img[:, :, -1])
+    mask = np.repeat(np.expand_dims(img[:, :, -1] < 128, -1), 3, axis=-1)
+    img = img[:, :, :3]
+    img[mask[:, :, 0], 0] = 64
+    img[mask[:, :, 0], 1] = 255
+    img[mask[:, :, 0], 2] = 64
+    ax[2].imshow(img)

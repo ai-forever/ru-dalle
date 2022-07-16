@@ -11,6 +11,7 @@ all_branch_test:
   - apt-get install ffmpeg libsm6 libxext6 -y
   - pip install cython
   - pip install -r requirements-test.txt --no-cache-dir
+  - pip install timm==0.4.12
   - pip install codecov
   - pytest --cov=rudalle tests/
   - bash <(curl -s https://codecov.io/bash) -t $CODECOV_TOKEN

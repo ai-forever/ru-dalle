@@ -5,16 +5,36 @@ import torch
 from torch.nn import LayerNorm
 
 from .utils import divide, split_tensor_along_last_dim
-
-
-@torch.jit.script
-def gelu_impl(x):
-    """OpenAI's gelu implementation."""
-    return 0.5 * x * (1.0 + torch.tanh(0.7978845608028654 * x * (1.0 + 0.044715 * x * x)))
+from .image_attention import get_conv_mask, get_row_mask, get_col_mask
 
 
 def gelu(x):
-    return gelu_impl(x)
+    return 0.5 * x * (1.0 + torch.tanh(0.7978845608028654 * x * (1.0 + 0.044715 * x * x)))
+
+
+@torch.jit.script
+def gelu_jit(x):
+    """OpenAI's gelu implementation."""
+    return gelu(x)
+
+
+class Layer(torch.nn.Module):
+    """
+    Helper class for gradient checkpointing.
+    """
+
+    def __init__(self, x, f, *args, **kwargs):
+        super(Layer, self).__init__()
+        # module to checkpoint
+        self.x = x
+        # post-processing function
+        self.f = f
+        # arguments to the module
+        self.args = args
+        self.kwargs = kwargs
+
+    def forward(self, x):
+        return self.f(self.x(x, *self.args, **self.kwargs))
 
 
 class DalleTransformer(torch.nn.Module):
@@ -44,16 +64,32 @@ class DalleTransformer(torch.nn.Module):
     """
     _mask_map = []
 
-    def __init__(self, num_layers, hidden_size, num_attention_heads, attention_dropout_prob, output_dropout_prob,
-                 layernorm_epsilon=1.0e-5, cogview_sandwich_layernorm=False, cogview_pb_relax=False):
+    def __init__(self,
+                 num_layers,
+                 hidden_size,
+                 num_attention_heads,
+                 attention_dropout_prob,
+                 output_dropout_prob,
+                 text_seq_length,
+                 image_tokens_per_dim,
+                 init_layer_func=None,
+                 layernorm_epsilon=1.0e-5,
+                 cogview_sandwich_layernorm=False,
+                 cogview_pb_relax=False,
+                 mlp_activation='gelu_jit',
+                 is_bool_mask=False,
+                 hf_version='v3'):
         super(DalleTransformer, self).__init__()
-
+        if init_layer_func is None:
+            def init_layer_func(x, prefix=None): return x
+        self.num_layers = num_layers
         # CogView stabilization of training features, see chapter 2.4 https://arxiv.org/pdf/2105.13290.pdf
         self.cogview_pb_relax = cogview_pb_relax
-
+        # Additional stabilization tweak for large models
+        self.hf_version = hf_version
         # Transformer layers.
         self.layers = torch.nn.ModuleList([
-            DalleTransformerLayer(
+            init_layer_func(DalleTransformerLayer(
                 hidden_size,
                 num_attention_heads,
                 attention_dropout_prob,
@@ -61,21 +97,65 @@ class DalleTransformer(torch.nn.Module):
                 layernorm_epsilon,
                 cogview_sandwich_layernorm=cogview_sandwich_layernorm,
                 cogview_pb_relax=cogview_pb_relax,
-            ) for _ in range(num_layers)
+                mlp_activation=mlp_activation,
+            ), prefix=f'transformer.layers.{i}.') for i in range(num_layers)
         ])
 
-        # Final layer norm before output.
-        self.final_layernorm = LayerNorm(hidden_size, eps=layernorm_epsilon)
+        row_mask = get_row_mask(text_seq_length, image_tokens_per_dim, is_bool_mask=is_bool_mask)
+        col_mask = get_col_mask(text_seq_length, image_tokens_per_dim, is_bool_mask=is_bool_mask)
+        conv_mask = get_conv_mask(text_seq_length, image_tokens_per_dim, is_bool_mask=is_bool_mask,
+                                  hf_version=self.hf_version)
+        self.register_buffer('row_mask', row_mask)
+        self.register_buffer('col_mask', col_mask)
+        self.register_buffer('conv_mask', conv_mask)
 
-    def forward(self, hidden_states, attention_mask, has_cache, use_cache):
+        init_layer_func(self.row_mask)
+        init_layer_func(self.col_mask)
+        init_layer_func(self.conv_mask)
+
+        # Final layer norm before output.
+        self.final_layernorm = init_layer_func(LayerNorm(hidden_size, eps=layernorm_epsilon),
+                                               prefix='transformer.final_layernorm.')
+
+    def _get_layer_mask(self, layer_id):
+        if ((layer_id - 1) % 4 == 0):
+            layer_mask = self.col_mask
+        elif layer_id != self.num_layers - 1:
+            layer_mask = self.row_mask
+        else:
+            layer_mask = self.conv_mask
+        return layer_mask
+
+    def forward(self, hidden_states, attention_mask, cache=None, use_cache=False, gradient_checkpointing=None):
+        if cache is None:
+            cache = {}
+        # Immutable caching uses much more VRAM.
+        # present_cache = {}
+
+        if gradient_checkpointing:
+            assert not use_cache
+            layers = []
+
         for i, layer in enumerate(self.layers):
             mask = attention_mask
-            if len(self._mask_map):
-                layer_mask = self._mask_map[i][:mask.size(2), :mask.size(3)]
-                mask = torch.mul(attention_mask, layer_mask)
-            hidden_states, present_has_cache = layer(hidden_states, mask, has_cache=has_cache, use_cache=use_cache)
+            layer_mask = self._get_layer_mask(i)[:mask.size(2), :mask.size(3)]
+            mask = torch.mul(attention_mask, layer_mask)
+            if gradient_checkpointing:
+                layers.append(Layer(layer,
+                                    # only get the embeddings, not present_has_cache
+                                    lambda x: x[0],
+                                    mask,
+                                    use_cache=False, has_cache=False))
+            else:
+                hidden_states, layer_cache = layer(
+                    hidden_states, mask, cache.get(i), mlp_cache=i == len(self.layers)-1, use_cache=use_cache)
+                cache[i] = layer_cache
+        if gradient_checkpointing:
+            hidden_states = torch.utils.checkpoint.checkpoint_sequential(
+                layers, gradient_checkpointing, hidden_states)
+
         output = self.final_layernorm(hidden_states)
-        return output, present_has_cache
+        return output, cache
 
 
 class DalleTransformerLayer(torch.nn.Module):
@@ -109,7 +189,8 @@ class DalleTransformerLayer(torch.nn.Module):
                  output_dropout_prob,
                  layernorm_epsilon,
                  cogview_sandwich_layernorm=False,
-                 cogview_pb_relax=False):
+                 cogview_pb_relax=False,
+                 mlp_activation='gelu_jit'):
         super(DalleTransformerLayer, self).__init__()
 
         # CogView stabilization of training features, see chapter 2.4 https://arxiv.org/pdf/2105.13290.pdf
@@ -129,25 +210,27 @@ class DalleTransformerLayer(torch.nn.Module):
             num_attention_heads,
             attention_dropout_prob,
             output_dropout_prob,
-            cogview_pb_relax=cogview_pb_relax
+            cogview_pb_relax=cogview_pb_relax,
         )
 
         # Layernorm on the input data.
         self.post_attention_layernorm = LayerNorm(hidden_size, eps=layernorm_epsilon)
 
         # MLP
-        self.mlp = DalleMLP(hidden_size, output_dropout_prob)
+        self.mlp = DalleMLP(hidden_size, output_dropout_prob, activation=mlp_activation)
 
-    def forward(self, hidden_states, ltor_mask, has_cache, use_cache):
+    def forward(self, hidden_states, ltor_mask, cache=None, use_cache=False, mlp_cache=False):
         # hidden_states: [b, s, h]
         # ltor_mask: [1, 1, s, s]
+        # cache: [3/4, b, s, h] (query, key, output)
 
         # Layer norm at the begining of the transformer layer.
         layernorm_output = self.input_layernorm(hidden_states)
 
         # Self attention.
-        attention_output, att_has_cache = self.attention(
-            layernorm_output, ltor_mask, has_cache=has_cache, use_cache=use_cache)
+        attention_output, new_cache = self.attention(
+            layernorm_output, ltor_mask,
+            cache=cache[:3] if use_cache and cache is not None else cache, use_cache=use_cache)
 
         if self.cogview_sandwich_layernorm:
             attention_output = self.before_first_addition_layernorm(attention_output)
@@ -155,12 +238,21 @@ class DalleTransformerLayer(torch.nn.Module):
         # Residual connection.
         layernorm_input = hidden_states + attention_output
 
+        # Update cache
+        cached = 0 if cache is None else cache[0].shape[-2]
+
         # Layer norm post the self attention.
         layernorm_output = self.post_attention_layernorm(layernorm_input)
 
         # MLP.
-        mlp_output, mlp_has_cache = self.mlp(
-            layernorm_output, has_cache=has_cache, use_cache=use_cache)
+        if use_cache and cached:
+            # MLP caching for the last layer.
+            mlp_output = torch.cat((cache[-1] if mlp_cache else layernorm_output[..., :cached, :],
+                                    self.mlp(layernorm_output[..., cached:, :])), dim=-2)
+            if mlp_cache:
+                new_cache = new_cache + (mlp_output,)
+        else:
+            mlp_output = self.mlp(layernorm_output)
 
         if self.cogview_sandwich_layernorm:
             mlp_output = self.before_second_addition_layernorm(mlp_output)
@@ -168,7 +260,7 @@ class DalleTransformerLayer(torch.nn.Module):
         # Second residual connection.
         output = layernorm_input + mlp_output
 
-        return output, att_has_cache and mlp_has_cache
+        return output, new_cache
 
 
 class DalleSelfAttention(torch.nn.Module):
@@ -196,12 +288,12 @@ class DalleSelfAttention(torch.nn.Module):
     """
 
     def __init__(self, hidden_size, num_attention_heads,
-                 attention_dropout_prob, output_dropout_prob, cogview_pb_relax=False):
+                 attention_dropout_prob, output_dropout_prob,
+                 cogview_pb_relax=False):
         super(DalleSelfAttention, self).__init__()
 
         # CogView stabilization of training features, see chapter 2.4 https://arxiv.org/pdf/2105.13290.pdf
         self.cogview_pb_relax = cogview_pb_relax
-
         self.hidden_size = hidden_size
         self.num_attention_heads = num_attention_heads
         self.hidden_size_per_attention_head = divide(hidden_size, num_attention_heads)
@@ -213,11 +305,6 @@ class DalleSelfAttention(torch.nn.Module):
         self.dense = torch.nn.Linear(hidden_size, hidden_size)
         self.output_dropout = torch.nn.Dropout(output_dropout_prob)
 
-        # Cache
-        self.past_key = None
-        self.past_value = None
-        self.past_output = None
-
     def _transpose_for_scores(self, tensor):
         """ Transpose a 3D tensor [b, s, np*hn] into a 4D tensor with size [b, np, s, hn]. """
         new_tensor_shape = tensor.size()[:-1] + (self.num_attention_heads, self.hidden_size_per_attention_head)
@@ -226,6 +313,7 @@ class DalleSelfAttention(torch.nn.Module):
 
     def _calculate_attention_scores(self, query_layer, key_layer, ltor_mask):
         key_t = key_layer.transpose(-1, -2)
+        mask_value = 10000.0
         if self.cogview_pb_relax:
             attention_scores = torch.matmul(
                 query_layer / math.sqrt(self.hidden_size_per_attention_head),
@@ -234,7 +322,7 @@ class DalleSelfAttention(torch.nn.Module):
         else:
             attention_scores = torch.matmul(query_layer, key_t) / math.sqrt(self.hidden_size_per_attention_head)
         ltor_mask = ltor_mask[:, :, -attention_scores.shape[-2]:]
-        attention_scores = torch.mul(attention_scores, ltor_mask) - 10000.0 * (1.0 - ltor_mask)
+        attention_scores = torch.mul(attention_scores, ltor_mask) - mask_value * (1.0 - ltor_mask)
         if self.cogview_pb_relax:
             # normalize attention scores. Should not affect resulting softmax value
             alpha = 32
@@ -248,12 +336,13 @@ class DalleSelfAttention(torch.nn.Module):
             attention_scores = (attention_scores_scaled - attention_scores_scaled_maxes) * alpha
         return attention_scores
 
-    def forward(self, hidden_states, ltor_mask, has_cache=False, use_cache=False, ):
+    def forward(self, hidden_states, ltor_mask, use_cache=False, cache=None,):
         # hidden_states: [b, s, h]
         # ltor_mask: [1, 1, s, s]
+        # cache: [3, b, s, h]  (key, value, output)
         # Attention heads. [b, s, hp]
-        if has_cache and use_cache:
-            mixed_x_layer = self.query_key_value(hidden_states[:, self.past_key.shape[-2]:, :])
+        if use_cache and cache is not None:
+            mixed_x_layer = self.query_key_value(hidden_states[:, cache[0].shape[-2]:, :])
         else:
             mixed_x_layer = self.query_key_value(hidden_states)
 
@@ -266,33 +355,22 @@ class DalleSelfAttention(torch.nn.Module):
         value_layer = self._transpose_for_scores(mixed_value_layer)
 
         # Can be simplified, but I didn't for readability's sake
-        if use_cache and has_cache:
-            key_layer = torch.cat((self.past_key, key_layer), dim=-2)
-            value_layer = torch.cat((self.past_value, value_layer), dim=-2)
+        if use_cache and cache is not None:
+            past_key, past_value, past_output = cache
+            key_layer = torch.cat((past_key, key_layer), dim=-2)
+            value_layer = torch.cat((past_value, value_layer), dim=-2)
             attention_scores = self._calculate_attention_scores(
                 query_layer=query_layer, key_layer=key_layer, ltor_mask=ltor_mask
             )
-        else:
-            attention_scores = self._calculate_attention_scores(
-                query_layer=query_layer, key_layer=key_layer, ltor_mask=ltor_mask
-            )
-
-        if use_cache and has_cache:
-            extra_cache_size = hidden_states.shape[-2] - self.past_key.shape[-2]
+            extra_cache_size = hidden_states.shape[-2] - past_key.shape[-2]
             attention_scores = attention_scores[..., -extra_cache_size:, :]
-
-        if use_cache:
-            self.past_key = key_layer
-            self.past_value = value_layer
         else:
-            self.past_key = None
-            self.past_value = None
-            self.past_output = None
-            has_cache = False
+            attention_scores = self._calculate_attention_scores(
+                query_layer=query_layer, key_layer=key_layer, ltor_mask=ltor_mask
+            )
 
         # Attention probabilities. [b, np, s, s]
         attention_probs = torch.nn.Softmax(dim=-1)(attention_scores)
-
         # This is actually dropping out entire tokens to attend to, which might
         # seem a bit unusual, but is taken from the original Transformer paper.
         attention_probs = self.attention_dropout(attention_probs)
@@ -310,18 +388,18 @@ class DalleSelfAttention(torch.nn.Module):
 
         # Output. [b, s, h]
         output = self.dense(context_layer)
+        output = torch.clamp(output, min=-65504, max=65504)
+
+        if use_cache and cache is not None:
+            output = torch.cat((past_output, output), dim=-2)
 
         if use_cache:
-            # Can be simplified, but I didn't for readability's sake
-            if has_cache:
-                output = torch.cat((self.past_output, output), dim=-2)
-                self.past_output = output
-            else:
-                self.past_output = output
-            has_cache = True
+            cache = key_layer, value_layer, output
+        # another option:
+        # cache = torch.cat((key_layer, value_layer, output), dim=0)
 
         output = self.output_dropout(output)
-        return output, has_cache
+        return output, cache
 
 
 class DalleMLP(torch.nn.Module):
@@ -336,37 +414,27 @@ class DalleMLP(torch.nn.Module):
                              after self attention and final output.
     """
 
-    def __init__(self, hidden_size, output_dropout_prob):
+    def __init__(self, hidden_size, output_dropout_prob, activation='gelu_jit'):
         super(DalleMLP, self).__init__()
+        self.activation = activation
         # Project to 4h.
         self.dense_h_to_4h = torch.nn.Linear(hidden_size, 4 * hidden_size)
         # Project back to h.
         self.dense_4h_to_h = torch.nn.Linear(4 * hidden_size, hidden_size)
         self.dropout = torch.nn.Dropout(output_dropout_prob)
-        # MLP cache
-        self.past_x = None
 
-    def forward(self, hidden_states, has_cache=False, use_cache=False):
-        if has_cache and use_cache:
-            hidden_states = hidden_states[:, self.past_x.shape[-2]:]
-
+    def forward(self, hidden_states):
         # [b, s, 4hp]
         x = self.dense_h_to_4h(hidden_states)
-        x = gelu(x)
+        if self.activation == 'gelu_jit':
+            x = gelu_jit(x)
+        elif self.activation == 'gelu':
+            x = gelu(x)
+        else:
+            raise NotImplementedError('Used MLP activation is not implemented.')
+
         # [b, s, h]
         x = self.dense_4h_to_h(x)
-        if use_cache:
-            # Can be simplified, but I didn't for readability's sake
-            if has_cache:
-                x = torch.cat((self.past_x, x), dim=-2)
-                self.past_x = x
-            else:
-                self.past_x = x
 
-            has_cache = True
-        else:
-            self.past_x = None
-            has_cache = False
         output = self.dropout(x)
-
-        return output, has_cache
+        return output

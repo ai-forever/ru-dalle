@@ -8,16 +8,19 @@ from torch import einsum
 from einops import rearrange
 from taming.modules.diffusionmodules.model import Encoder, Decoder
 
+from .decoder_dwt import DecoderDWT
+
 
 class VQGanGumbelVAE(torch.nn.Module):
 
-    def __init__(self, config):
+    def __init__(self, config, dwt=False):
         super().__init__()
         model = GumbelVQ(
             ddconfig=config.model.params.ddconfig,
             n_embed=config.model.params.n_embed,
             embed_dim=config.model.params.embed_dim,
             kl_weight=config.model.params.kl_weight,
+            dwt=dwt,
         )
         self.model = model
         self.num_layers = int(log(config.model.params.ddconfig.attn_resolutions[0]) / log(2))
@@ -25,9 +28,9 @@ class VQGanGumbelVAE(torch.nn.Module):
         self.num_tokens = config.model.params.n_embed
 
     @torch.no_grad()
-    def get_codebook_indices(self, img):
+    def get_codebook_indices(self, img, disable_gumbel_softmax=False):
         img = (2 * img) - 1
-        _, _, [_, _, indices] = self.model.encode(img)
+        _, _, [_, _, indices] = self.model.encode(img, disable_gumbel_softmax=disable_gumbel_softmax)
         return rearrange(indices, 'b h w -> b (h w)')
 
     def decode(self, img_seq):
@@ -60,16 +63,20 @@ class GumbelQuantize(nn.Module):
         self.embed = nn.Embedding(self.n_embed, self.embedding_dim)
         self.use_vqinterface = use_vqinterface
 
-    def forward(self, z, temp=None, return_logits=False):
+    def forward(self, z, temp=None, return_logits=False, disable_gumbel_softmax=False):
         hard = self.straight_through if self.training else True
         temp = self.temperature if temp is None else temp
         logits = self.proj(z)
-        soft_one_hot = F.gumbel_softmax(logits, tau=temp, dim=1, hard=hard)
-        z_q = einsum('b n h w, n d -> b d h w', soft_one_hot, self.embed.weight)
-        # + kl divergence to the prior loss
-        qy = F.softmax(logits, dim=1)
-        diff = self.kl_weight * torch.sum(qy * torch.log(qy * self.n_embed + 1e-10), dim=1).mean()
-        ind = soft_one_hot.argmax(dim=1)
+        if disable_gumbel_softmax:
+            z_q, diff = None, None
+            ind = logits.argmax(dim=1)
+        else:
+            soft_one_hot = F.gumbel_softmax(logits, tau=temp, dim=1, hard=hard)
+            z_q = einsum('b n h w, n d -> b d h w', soft_one_hot, self.embed.weight)
+            # + kl divergence to the prior loss
+            qy = F.softmax(logits, dim=1)
+            diff = self.kl_weight * torch.sum(qy * torch.log(qy * self.n_embed + 1e-10), dim=1).mean()
+            ind = soft_one_hot.argmax(dim=1)
         if self.use_vqinterface:
             if return_logits:
                 return z_q, diff, (None, None, ind), logits
@@ -79,22 +86,26 @@ class GumbelQuantize(nn.Module):
 
 class GumbelVQ(nn.Module):
 
-    def __init__(self, ddconfig, n_embed, embed_dim, kl_weight=1e-8):
+    def __init__(self, ddconfig, n_embed, embed_dim, dwt=False, kl_weight=1e-8):
         super().__init__()
         z_channels = ddconfig['z_channels']
+        self.dwt = dwt
         self.encoder = Encoder(**ddconfig)
-        self.decoder = Decoder(**ddconfig)
+        self.decoder = DecoderDWT(ddconfig, embed_dim) if dwt else Decoder(**ddconfig)
         self.quantize = GumbelQuantize(z_channels, embed_dim, n_embed=n_embed, kl_weight=kl_weight, temp_init=1.0)
         self.quant_conv = torch.nn.Conv2d(ddconfig['z_channels'], embed_dim, 1)
         self.post_quant_conv = torch.nn.Conv2d(embed_dim, ddconfig['z_channels'], 1)
 
-    def encode(self, x):
+    def encode(self, x, disable_gumbel_softmax=False):
         h = self.encoder(x)
         h = self.quant_conv(h)
-        quant, emb_loss, info = self.quantize(h)
+        quant, emb_loss, info = self.quantize(h, disable_gumbel_softmax=disable_gumbel_softmax)
         return quant, emb_loss, info
 
     def decode(self, quant):
-        quant = self.post_quant_conv(quant)
+        if self.dwt:
+            quant = self.decoder.post_quant_conv(quant)
+        else:
+            quant = self.post_quant_conv(quant)
         dec = self.decoder(quant)
         return dec
