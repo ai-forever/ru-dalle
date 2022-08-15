@@ -151,7 +151,7 @@ MODELS = {
 
 
 def get_rudalle_model(name, pretrained=True, fp16=False, device='cpu', use_auth_token=None,
-                      cache_dir='/tmp/rudalle', **model_kwargs):
+                      cache_dir='/tmp/rudalle', resume_download=False, **model_kwargs):
     assert name in MODELS
 
     if fp16 and device == 'cpu':
@@ -188,7 +188,7 @@ def get_rudalle_model(name, pretrained=True, fp16=False, device='cpu', use_auth_
         cache_dir = os.path.join(cache_dir, name)
         config_file_url = hf_hub_url(repo_id=config['repo_id'], filename=config['filename'])
         cached_download(config_file_url, cache_dir=cache_dir, force_filename=config['filename'],
-                        use_auth_token=use_auth_token)
+                        use_auth_token=use_auth_token, resume_download=resume_download)
         checkpoint = torch.load(os.path.join(cache_dir, config['filename']), map_location=device)
 
         pbar = tqdm(total=len(checkpoint.keys()))
