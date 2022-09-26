@@ -13,7 +13,7 @@ def get_vae(pretrained=True, dwt=False, cache_dir='/tmp/rudalle'):
     config = OmegaConf.load(join(dirname(abspath(__file__)), 'vqgan.gumbelf8-sber.config.yml'))
     vae = VQGanGumbelVAE(config, dwt=dwt)
     if pretrained:
-        repo_id = 'shonenkov/rudalle-utils'
+        repo_id = 'sberbank-ai/rudalle-utils'
         if dwt:
             filename = 'vqgan.gumbelf8-sber-dwt.model.ckpt'
         else:
