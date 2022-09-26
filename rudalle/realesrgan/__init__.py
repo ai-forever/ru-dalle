@@ -9,17 +9,17 @@ from .model import RealESRGAN
 MODELS = {
     'x2': dict(
         scale=2,
-        repo_id='shonenkov/rudalle-utils',
+        repo_id='sberbank-ai/Real-ESRGAN',
         filename='RealESRGAN_x2.pth',
     ),
     'x4': dict(
         scale=4,
-        repo_id='shonenkov/rudalle-utils',
+        repo_id='sberbank-ai/Real-ESRGAN',
         filename='RealESRGAN_x4.pth',
     ),
     'x8': dict(
         scale=8,
-        repo_id='shonenkov/rudalle-utils',
+        repo_id='sberbank-ai/Real-ESRGAN',
         filename='RealESRGAN_x8.pth',
     ),
 }
