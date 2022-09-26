@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 import gc
-
+import requests
 from tqdm.auto import tqdm
 import torch
 from huggingface_hub import hf_hub_url, cached_download
@@ -121,7 +121,7 @@ MODELS = {
             vocab_size=16384 + 128,
             image_vocab_size=8192,
         ),
-        repo_id='shonenkov-AI/Kandinsky',
+        repo_id='sberbank-ai/rudalle-Kandinsky',
         filename='pytorch_model.bin',
         authors='SberAI, SberDevices, shonenkovAI',
         full_description='',  # TODO
@@ -187,8 +187,18 @@ def get_rudalle_model(name, pretrained=True, fp16=False, device='cpu', use_auth_
 
         cache_dir = os.path.join(cache_dir, name)
         config_file_url = hf_hub_url(repo_id=config['repo_id'], filename=config['filename'])
-        cached_download(config_file_url, cache_dir=cache_dir, force_filename=config['filename'],
-                        use_auth_token=use_auth_token)
+        try:
+            cached_download(config_file_url, cache_dir=cache_dir, force_filename=config['filename'],
+                            use_auth_token=use_auth_token)
+        except requests.HTTPError as err:
+            err_str = str(err)
+            # compatibility with auth_token for old hf repo
+            if name == 'Kandinsky' and err_str.startswith('404 Client Error: Not Found for url:'):
+                config_file_url = hf_hub_url(repo_id='shonenkov-AI/Kandinsky', filename='pytorch_model.bin')
+                cached_download(config_file_url, cache_dir=cache_dir, force_filename=config['filename'],
+                                use_auth_token=use_auth_token)
+            else:
+                raise err
         checkpoint = torch.load(os.path.join(cache_dir, config['filename']), map_location=device)
 
         pbar = tqdm(total=len(checkpoint.keys()))
